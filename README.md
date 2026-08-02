@@ -60,16 +60,18 @@ relative to what else is in frame, what reference objects are visible, what coul
 Every consequence of that rule is a feature: corrections are free and offline, historical logs never
 silently change, and the two worst bugs in this product category become structurally impossible.
 
-## Two ways to run it
+## How you run it
 
-Chosen during onboarding, changeable any time, and presented neutrally:
+**Bring your own key.** Your own Anthropic, OpenAI or Google key, added during onboarding and
+changeable any time in Profile. Your photo goes to the provider you named and nowhere else.
+Typically well under a cent per scan. This is the only inference path in the app today.
 
-- **Bring your own key** — your own Anthropic / OpenAI / Google key. Your photo goes to the provider you
-  named and nowhere else. Typically well under a cent per scan.
-- **On-device** — free, private, works on a plane. Accuracy is **unproven** and will be measured and
-  published before it ships as a default.
+**On-device inference is on the roadmap, not on the menu.** It is not in this build and onboarding
+does not offer it. The commitment it carries stands and moves with it: its accuracy will be
+measured against the kitchen-scale-weighed golden set and **published before it ships as a
+default** — free, private and works-on-a-plane is worth nothing if the numbers are unproven.
 
-Either way, barcode scanning, label OCR, text search, manual entry and the entire correction flow work
+Barcode scanning, label OCR, text search, manual entry and the entire correction flow work
 offline with no key at all.
 
 ## What we deliberately do not clone
@@ -92,6 +94,8 @@ packages/         pure TypeScript, importable under plain Node:
   prompt          system prompt, few-shots, prompt versioning
   db-adapter      one interface, two impls: expo-sqlite | better-sqlite3
   clamp           the deterministic sanity clamp
+  pipeline        scan stages 4-9 wired end to end — the composition layer, and the
+                  widest fan-out in the repo: it depends on eight of the packages above
 eval/             accuracy harness — imports the real engine, runs under Node
 ```
 
@@ -109,7 +113,7 @@ listing taking a cut. One-time setup, ~20 minutes.
 **iPhone** (needs a Mac with [Xcode](https://apps.apple.com/app/xcode/id497799835)):
 
 ```bash
-git clone https://github.com/Blueturboguy07/nut-ai.git
+git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
 npm run data:build                      # builds the bundled USDA nutrition database
 cd apps/mobile && npm run prebuild      # generates the native project
@@ -122,7 +126,7 @@ this way re-install every 7 days; a $99/yr developer account removes that limit)
 **Android** (any computer with [Android Studio](https://developer.android.com/studio)'s SDK):
 
 ```bash
-git clone https://github.com/Blueturboguy07/nut-ai.git
+git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
 npm run data:build
 cd apps/mobile && npx expo run:android --variant release   # phone plugged in, USB debugging on
@@ -153,9 +157,20 @@ npm install
 npm run check        # lint + typecheck + tests + node-purity
 ```
 
-**Expo Go is not a supported development mode.** The camera, SQLite, Keychain key storage, HealthKit,
-and file export/import all require a compiled app — build with Xcode or `expo run:android` as shown
-above.
+**Expo Go is a supported development mode in this fork.**
+
+```bash
+cd apps/mobile && npm run start:go      # `npm start` is the dev-client variant, not Expo Go
+```
+
+Scan the QR code and the app runs on your phone with no Mac, no Xcode and no native build — which
+is what makes a Linux development host viable.
+
+What it costs: **HealthKit is stubbed.** `react-native-healthkit` is a native module Expo Go cannot
+load, so `apps/mobile/stubs/react-native-healthkit.js` stands in for it and Apple Health does
+nothing. Everything else the app reaches for — camera, SQLite, Keychain key storage, file
+export/import — ships inside the Expo Go runtime. For the real native modules, use a development
+build (`expo-dev-client`) or the release builds shown above.
 
 ## Licensing
 
