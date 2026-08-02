@@ -102,7 +102,9 @@ export default function TabLayout() {
                 style={[styles.action, { backgroundColor: theme.bgElevated }]}
               >
                 <Icon name={a.icon} size={28} color={theme.text} />
-                <Text style={[type.bodyStrong, { color: theme.text, marginTop: space.sm }]}>{a.label}</Text>
+                <Text style={[type.bodyStrong, styles.actionLabel, { color: theme.text }]}>
+                  {a.label}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -163,13 +165,32 @@ const styles = StyleSheet.create({
     gap: space.md,
     paddingHorizontal: space.lg,
   },
+  /**
+   * Icon and label are centred on BOTH axes inside the card.
+   *
+   * `alignSelf: 'center'` matters: the grid wraps, and a wrapping flex container
+   * defaults to `alignItems: 'stretch'`, which lets a line stretch a card's
+   * height past the one `aspectRatio` asked for. When that happens the card grows
+   * but the content stays where the pre-stretch layout put it, which reads as the
+   * icon and label sitting low in the box. Opting the card out of the stretch
+   * makes `aspectRatio` the only thing deciding its height, so `justifyContent`
+   * centres against the height actually drawn.
+   *
+   * The label's spacing is `gap` on the card rather than `marginTop` on the Text,
+   * so the gap belongs to the stack instead of hanging off one child.
+   */
   action: {
     width: '47%',
     aspectRatio: 1.35,
+    alignSelf: 'center',
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: space.sm,
+    padding: space.sm,
   },
+  // Centred so a label that wraps stays centred instead of going ragged-right.
+  actionLabel: { textAlign: 'center' },
   closeWrap: {
     position: 'absolute',
     left: 0,
