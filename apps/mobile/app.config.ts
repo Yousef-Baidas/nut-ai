@@ -59,21 +59,14 @@ const config: ExpoConfig = {
     ['expo-camera', { cameraPermission: 'Nut AI uses your camera to photograph meals and scan barcodes.' }],
     'expo-secure-store',
     'expo-sqlite',
-    [
-      '@kingstinct/react-native-healthkit',
-      {
-        // Both strings are required by App Review, and they must describe what we
-        // actually do rather than what HealthKit could theoretically allow.
-        NSHealthShareUsageDescription:
-          'Nut AI reads your steps, workouts and weight so your calorie target reflects what you actually did, instead of a fixed guess.',
-        NSHealthUpdateUsageDescription:
-          'Nut AI writes the meals you log to Health so your nutrition data lives alongside the rest of your health record.',
-        // Background delivery is deliberately off. It is an extra entitlement, it
-        // is a battery cost, and nothing here needs to react to a step count
-        // while the app is closed.
-        background: false,
-      },
-    ],
+    // The @kingstinct/react-native-healthkit config plugin is removed in this
+    // Expo Go / SDK 54 fork. The package itself is uninstalled (it peer-depends
+    // on react-native 0.86 / react 19.2, which drags SDK 57 back into the tree),
+    // and src/health/healthkit.ts already degrades to a no-Health build when the
+    // module fails to load. A config plugin for an uninstalled package is a hard
+    // startup error, not a warning — Expo cannot resolve it and refuses to boot.
+    //
+    // Restore this block together with the package for a native SDK 57 build.
   ],
 
   experiments: { typedRoutes: true },

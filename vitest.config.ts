@@ -25,6 +25,14 @@ export default defineConfig({
       '@nutai/clamp': pkg('clamp'),
       '@nutai/pipeline': pkg('pipeline'),
       '@nutai/eval': fileURLToPath(new URL('./eval/src/index.ts', import.meta.url)),
+      // Mirror the Metro alias in apps/mobile/metro.config.js. The real pod is not
+      // installed (Expo Go cannot load it), so without this the dynamic import in
+      // src/health/healthkit.ts would fail to RESOLVE under Vitest and take the
+      // catch branch — passing the stub tests for the wrong reason and hiding a
+      // regression in the sentinel path.
+      '@kingstinct/react-native-healthkit': fileURLToPath(
+        new URL('./apps/mobile/stubs/react-native-healthkit.js', import.meta.url),
+      ),
     },
   },
   test: {

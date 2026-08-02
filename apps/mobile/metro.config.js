@@ -39,7 +39,29 @@ config.resolver.disableHierarchicalLookup = true
  */
 const originalResolveRequest = config.resolver.resolveRequest
 
+/**
+ * Expo Go: alias HealthKit to a stub that reports itself as unavailable.
+ *
+ * HealthKit is the only native module this app uses that Expo Go does not
+ * bundle, so it is the only thing preventing the app from running on a device
+ * with no Xcode and no Mac. The stub exports a `__expoGoStub` marker that
+ * `src/health/healthkit.ts` checks for, and treats exactly like an absent pod.
+ * It must NOT throw — Metro routes a throwing module factory to
+ * `reportFatalError`, which no caller's try/catch can intercept.
+ * See stubs/react-native-healthkit.js.
+ *
+ * Set NUTAI_NATIVE=1 to bypass the alias and use the real pod in a native build.
+ */
+const EXPO_GO_STUBS = process.env.NUTAI_NATIVE
+  ? {}
+  : { '@kingstinct/react-native-healthkit': path.resolve(projectRoot, 'stubs/react-native-healthkit.js') }
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const stub = EXPO_GO_STUBS[moduleName]
+  if (stub) {
+    return { type: 'sourceFile', filePath: stub }
+  }
+
   const isRelative = moduleName.startsWith('./') || moduleName.startsWith('../')
 
   if (isRelative && moduleName.endsWith('.js')) {

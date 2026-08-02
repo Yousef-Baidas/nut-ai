@@ -48,7 +48,15 @@ const WRITE_TYPES = [
 async function load() {
   if (Platform.OS !== 'ios') return null
   try {
-    return await import('@kingstinct/react-native-healthkit')
+    const mod = await import('@kingstinct/react-native-healthkit')
+    // In Expo Go, Metro aliases this specifier to stubs/react-native-healthkit.js,
+    // which resolves fine but is backed by no native module. Treat it exactly like
+    // an absent pod so every downstream null path fires. The stub cannot signal
+    // this by throwing: Metro converts a throwing module factory into
+    // ErrorUtils.reportFatalError (a red LogBox screen) instead of rethrowing it
+    // to us, so the catch below would never see it. See the stub's header.
+    if ((mod as { __expoGoStub?: boolean } | null)?.__expoGoStub) return null
+    return mod
   } catch {
     // The pod is not in this build. Not fatal — the app works without Health.
     return null
