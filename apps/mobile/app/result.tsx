@@ -3,6 +3,9 @@ import { useState } from 'react'
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +19,7 @@ import type { WebLookupResult } from '@nutai/core-schema'
 import { healthScore } from '@nutai/totals'
 import { ConfidenceChip, ConfidenceReasons } from '../src/components/ConfidenceChip'
 import { Icon, type IconName } from '../src/components/Icon'
+import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
 import { logMeal } from '../src/data/repo'
 import { fixScan, lookupOther, retryScan } from '../src/scan/orchestrator'
 import {
@@ -121,10 +125,39 @@ export default function Result() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: 120 }}>
-        <Text style={[type.title, { color: theme.text }]}>
-          {result.items[0]?.row.displayName ?? 'Your meal'}
-        </Text>
+      <ScrollView
+        contentContainerStyle={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: 120 }}
+        // `interactive` is the native drag-the-keyboard-down gesture, so the
+        // swipe reflex lands on the keyboard instead of the sheet.
+        keyboardDismissMode="interactive"
+        // Without `handled`, the first tap while a keyboard is up is swallowed
+        // to dismiss it — so correcting a row took two taps and looked dead on
+        // the first.
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.titleRow}>
+          <Text style={[type.title, { color: theme.text, flex: 1 }]}>
+            {result.items[0]?.row.displayName ?? 'Your meal'}
+          </Text>
+          {/*
+            Swipe-to-dismiss is off for this screen (see app/_layout.tsx), so
+            leaving has to be an explicit tap. Discarding a finished scan is
+            destructive enough that it should cost a deliberate gesture, not a
+            reflex one.
+          */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Discard scan"
+            onPress={() => {
+              reset()
+              router.back()
+            }}
+            hitSlop={space.md}
+            style={styles.remove}
+          >
+            <Text style={{ color: theme.textFaint, fontSize: 22 }}>×</Text>
+          </Pressable>
+        </View>
 
         {/* The point estimate leads. The band qualifies it — it never replaces it. */}
         <View style={{ marginTop: space.lg }}>
@@ -202,6 +235,7 @@ export default function Result() {
                 <TextInput
                   accessibilityLabel={`Grams of ${row.displayName}`}
                   keyboardType="numeric"
+                  inputAccessoryViewID={DONE_ACCESSORY_ID}
                   defaultValue={String(Math.round(row.grams))}
                   onChangeText={(t) => editGrams(row.id, Number(t))}
                   style={[styles.gramInput, { color: theme.text, borderColor: theme.border }]}
@@ -259,7 +293,17 @@ export default function Result() {
       </View>
 
       {fixOpen ? (
-        <View style={[styles.fixOverlay, { backgroundColor: theme.bg, paddingTop: insets.top + space.xl }]}>
+        /*
+          `padding` lifts Update and Cancel clear of the keyboard. Before this
+          they lived at the bottom of a `flex: 1` spacer, i.e. underneath it —
+          so the only way to reach the button that submits the fix was to put
+          the keyboard away first, and this box `autoFocus`es a `multiline`
+          input whose return key types a newline. There was no exit.
+        */
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={[styles.fixOverlay, { backgroundColor: theme.bg, paddingTop: insets.top + space.xl }]}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
             <Icon name="pencil" size={20} color={theme.text} />
             <Text style={[type.title, { color: theme.text }]}>Fix result</Text>
@@ -267,6 +311,7 @@ export default function Result() {
           <TextInput
             autoFocus
             multiline
+            inputAccessoryViewID={DONE_ACCESSORY_ID}
             placeholder="Describe what needs to be fixed"
             placeholderTextColor={theme.textFaint}
             value={fixText}
@@ -279,7 +324,8 @@ export default function Result() {
               avocado. Only what you mention gets changed — your other edits stay put.
             </Text>
           </View>
-          <View style={{ flex: 1 }} />
+          {/* The dead space doubles as a dismiss target when the keyboard is down. */}
+          <Pressable accessible={false} onPress={() => Keyboard.dismiss()} style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
             disabled={!fixText.trim()}
@@ -304,8 +350,10 @@ export default function Result() {
           >
             <Text style={[type.body, { color: theme.textMuted }]}>Cancel</Text>
           </Pressable>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
+
+      <KeyboardDoneBar />
     </View>
   )
 }
@@ -518,6 +566,7 @@ function StatsPager({ totals, grams }: { totals: Parameters<typeof healthScore>[
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
   statsPage: { flexDirection: 'row', gap: space.md },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: space.md },
   dot: { width: 6, height: 6, borderRadius: 3 },

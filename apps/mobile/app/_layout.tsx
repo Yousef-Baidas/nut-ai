@@ -53,7 +53,19 @@ function Root() {
         <Stack.Screen name="onboarding" />
         {/* Full-screen flows are native modals: swipe-to-dismiss on iOS. */}
         <Stack.Screen name="camera" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="result" options={{ presentation: 'modal' }} />
+        {/*
+          `result` is the one modal that opts OUT of the swipe.
+
+          It holds a finished scan that has not been logged yet, and `camera`
+          reaches it via `router.replace`, so a dismissal is unrecoverable —
+          there is no camera left underneath to go back to, only a fresh
+          capture. Meanwhile every editable field on that screen (numeric gram
+          inputs, the multiline Fix result box) is on a keyboard with no return
+          key, which makes "swipe down" the user's only reflex for putting the
+          keyboard away. Leaving the gesture on means that reflex silently
+          throws away the scan. The screen carries an explicit × instead.
+        */}
+        <Stack.Screen name="result" options={{ presentation: 'modal', gestureEnabled: false }} />
         <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
         <Stack.Screen name="provider-settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="log-exercise" options={{ presentation: 'modal' }} />

@@ -12,6 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 import { Icon, type IconName } from '../Icon'
+import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
 import { useTheme } from '../../theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../../theme/tokens'
 
@@ -308,7 +309,10 @@ export function EditableValue({
             autoFocus
             selectTextOnFocus
             keyboardType="decimal-pad"
+            // decimal-pad has no return key, so returnKeyType above is inert on
+            // iOS. The accessory bar is what actually dismisses this field.
             returnKeyType="done"
+            inputAccessoryViewID={DONE_ACCESSORY_ID}
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={commit}
@@ -320,6 +324,8 @@ export function EditableValue({
             ]}
           />
           <Text style={[styles.readoutUnit, { color: theme.text }]}> {unit}</Text>
+          {/* Mounted only while editing, so exactly one can ever exist. */}
+          <KeyboardDoneBar />
         </View>
       ) : (
         <Pressable

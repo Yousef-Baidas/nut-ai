@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { reconcileFromMacros } from '@nutai/totals'
 import { currentGoal, overrideTargets, type CurrentGoal } from '../src/data/repo'
+import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { radius, space, type } from '../src/theme/tokens'
 
@@ -123,6 +124,8 @@ export default function EditGoals() {
           <Text style={[type.bodyStrong, { color: theme.bg, fontSize: 18 }]}>Save</Text>
         </Pressable>
       </View>
+
+      <KeyboardDoneBar />
     </View>
   )
 }
@@ -142,6 +145,7 @@ function Field({
       <View style={[styles.field, { backgroundColor: theme.bgSunken, borderColor: theme.border }]}>
         <TextInput
           keyboardType="number-pad"
+          inputAccessoryViewID={DONE_ACCESSORY_ID}
           value={value}
           onChangeText={onChange}
           accessibilityLabel={`${label} in ${unit}`}

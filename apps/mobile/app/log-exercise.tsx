@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ExerciseEstimateZ } from '@nutai/core-schema'
 import { cheapestModel, type ProviderId } from '@nutai/prompt'
 import { Icon, type IconName } from '../src/components/Icon'
+import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
 import { db, localDate, setting, weightHistory } from '../src/data/repo'
 import {
   exerciseKcal,
@@ -76,12 +77,22 @@ async function saveEntry(name: string, kcal: number): Promise<void> {
 export default function LogExercise() {
   const [step, setStep] = useState<Step>({ kind: 'menu' })
 
-  if (step.kind === 'intensity') {
-    return <IntensityScreen exercise={step.exercise} onBack={() => setStep({ kind: 'menu' })} />
-  }
-  if (step.kind === 'describe') return <DescribeScreen onBack={() => setStep({ kind: 'menu' })} />
-  if (step.kind === 'manual') return <ManualScreen onBack={() => setStep({ kind: 'menu' })} />
-  return <MenuScreen onPick={setStep} />
+  // One accessory bar for the whole flow: only one sub-screen is mounted at a
+  // time, so a single `nativeID` can never collide with itself.
+  return (
+    <>
+      {step.kind === 'intensity' ? (
+        <IntensityScreen exercise={step.exercise} onBack={() => setStep({ kind: 'menu' })} />
+      ) : step.kind === 'describe' ? (
+        <DescribeScreen onBack={() => setStep({ kind: 'menu' })} />
+      ) : step.kind === 'manual' ? (
+        <ManualScreen onBack={() => setStep({ kind: 'menu' })} />
+      ) : (
+        <MenuScreen onPick={setStep} />
+      )}
+      <KeyboardDoneBar />
+    </>
+  )
 }
 
 function Header({ title, icon, onBack }: { title: string; icon?: IconName; onBack: () => void }) {
@@ -240,6 +251,7 @@ function IntensityScreen({ exercise, onBack }: { exercise: ExerciseKind; onBack:
         <TextInput
           accessibilityLabel="Duration in minutes"
           keyboardType="number-pad"
+          inputAccessoryViewID={DONE_ACCESSORY_ID}
           value={minutes}
           onChangeText={setMinutes}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border }]}
@@ -376,6 +388,7 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           autoFocus
           accessibilityLabel="Calories burned"
           keyboardType="number-pad"
+          inputAccessoryViewID={DONE_ACCESSORY_ID}
           placeholder="250"
           placeholderTextColor={theme.textFaint}
           value={kcal}
