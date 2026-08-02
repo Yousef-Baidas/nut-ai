@@ -14,6 +14,7 @@ import { ONBOARDING_DONE_KEY } from '../onboarding/done-key'
 import { EXPORT_TABLES, WIPE_ONLY_TABLES } from './backup-core'
 import { clearCredential } from '../inference/credentials'
 import { openUserDb } from '../db/expo-adapter'
+import type { UnitSystem } from '../units/format'
 
 /**
  * The read/write layer over `user.db`.
@@ -143,6 +144,40 @@ export async function setting(key: string, fallback = ''): Promise<string> {
 export async function putSetting(key: string, value: string): Promise<void> {
   const h = await db()
   await h.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)', [key, value])
+}
+
+/**
+ * The user's unit system, and the ONLY sanctioned way to read it.
+ *
+ * THE BUG THIS REPLACES: onboarding writes the answer to `user_profile.units`,
+ * but the Log weight screen read it back with `setting('units', 'imperial')` —
+ * the `settings` KEY/VALUE TABLE, which nothing has ever written a `units` row
+ * to. That lookup always missed and always fell through to its 'imperial'
+ * fallback, so picking kg during onboarding silently changed nothing. Two
+ * stores, one of them phantom.
+ *
+ * `user_profile.units` wins because it is the column onboarding already
+ * populates and the schema already defaults. Anything reading `settings.units`
+ * is reading a key that does not exist.
+ */
+export async function unitSystem(): Promise<UnitSystem> {
+  const h = await db()
+  const row = await h.get<{ units: string }>('SELECT units FROM user_profile WHERE id = 1')
+  return row?.units === 'metric' ? 'metric' : 'imperial'
+}
+
+export async function setUnitSystem(units: UnitSystem): Promise<void> {
+  const h = await db()
+  await h.run('UPDATE user_profile SET units = ? WHERE id = 1', [units])
+}
+
+/** Height is stored in centimetres regardless of the display system. */
+export async function profileHeightCm(): Promise<number | null> {
+  const h = await db()
+  const row = await h.get<{ height_cm: number | null }>(
+    'SELECT height_cm FROM user_profile WHERE id = 1',
+  )
+  return row?.height_cm ?? null
 }
 
 /** Manual target override from the plan screen's pencil icons. */

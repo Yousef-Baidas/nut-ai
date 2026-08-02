@@ -3,11 +3,15 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { EditableValue, RulerPicker } from '../src/components/onboarding/Controls'
-import { logWeight, setting, weightHistory } from '../src/data/repo'
+import { logWeight, unitSystem, weightHistory } from '../src/data/repo'
+import {
+  displayWeight,
+  storedWeightKg,
+  weightUnitLabel,
+  type UnitSystem,
+} from '../src/units/format'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
-
-const LB_PER_KG = 2.20462
 
 /**
  * Log today's weight.
@@ -25,18 +29,21 @@ export default function LogWeight() {
   const { width } = useWindowDimensions()
 
   const [kg, setKg] = useState(80)
-  const [imperial, setImperial] = useState(true)
+  const [units, setUnits] = useState<UnitSystem>('imperial')
   const [saving, setSaving] = useState(false)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let alive = true
     void (async () => {
-      const [history, units] = await Promise.all([weightHistory(), setting('units', 'imperial')])
+      // Was `setting('units', 'imperial')`, which read the settings KEY/VALUE
+      // table. Onboarding writes `user_profile.units`, so that lookup never hit a
+      // row and this screen was permanently imperial no matter what was chosen.
+      const [history, u] = await Promise.all([weightHistory(), unitSystem()])
       if (!alive) return
       const last = history[history.length - 1]
       if (last) setKg(last.weightKg)
-      setImperial(units !== 'metric')
+      setUnits(u)
       setReady(true)
     })()
     return () => {
@@ -44,7 +51,8 @@ export default function LogWeight() {
     }
   }, [])
 
-  const shown = imperial ? kg * LB_PER_KG : kg
+  const imperial = units === 'imperial'
+  const shown = displayWeight(kg, units)
   const min = imperial ? 60 : 30
   const max = imperial ? 500 : 227
 
@@ -74,10 +82,10 @@ export default function LogWeight() {
           <View style={{ alignItems: 'center', marginTop: space.xxxl }}>
             <EditableValue
               value={shown}
-              unit={imperial ? 'lbs' : 'kg'}
+              unit={weightUnitLabel(units)}
               min={min}
               max={max}
-              onCommit={(v) => setKg(imperial ? v / LB_PER_KG : v)}
+              onCommit={(v) => setKg(storedWeightKg(v, units))}
             />
           </View>
 
@@ -88,7 +96,7 @@ export default function LogWeight() {
               max={max}
               step={0.1}
               value={Number(shown.toFixed(1))}
-              onChange={(v) => setKg(imperial ? v / LB_PER_KG : v)}
+              onChange={(v) => setKg(storedWeightKg(v, units))}
             />
           </View>
         </>

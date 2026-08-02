@@ -6,6 +6,7 @@ import {
   computeCalorieTarget,
   computeMacros,
   KCAL_PER_LB,
+  LB_PER_KG,
   type BodyInputs,
 } from '@nutai/goals'
 import { Icon, type IconName } from '../../src/components/Icon'
@@ -17,10 +18,10 @@ import {
   DIET_BIAS,
   featureDefaultsFor,
   inferredGoal,
-  kgToLb,
   todayEmphasisFor,
   useAnswers,
 } from '../../src/onboarding/store'
+import { formatWeight, weightUnitLabel } from '../../src/units/format'
 import { useTheme } from '../../src/theme/ThemeProvider'
 import { radius, space, type } from '../../src/theme/tokens'
 
@@ -61,7 +62,9 @@ export default function PlanScreen() {
 
     const currentKg = a.weightKg ?? 80
     const targetKg = a.desiredWeightKg ?? currentKg
-    const deltaLb = Math.abs(kgToLb(targetKg) - kgToLb(currentKg))
+    // Stays in POUNDS: it feeds `rate` below, and the kcal-per-pound model this
+    // plan is built on is defined in pounds. Only the rendering of it converts.
+    const deltaLb = Math.abs(targetKg - currentKg) * LB_PER_KG
 
     // A sane default rate, then let the floor clamp argue with it if it must.
     const rate = derivedGoal === 'maintain' ? 0 : Math.min(1, Math.max(0.25, deltaLb / 12))
@@ -83,10 +86,14 @@ export default function PlanScreen() {
   }, [a, derivedGoal])
 
   const gaining = derivedGoal === 'gain'
+  // `plan.deltaLb` is pounds because the kcal-per-pound model produces it that
+  // way; it must not reach a metric user's screen in that form.
+  const units = a.units
+  const delta = units === 'metric' ? plan.deltaLb / LB_PER_KG : plan.deltaLb
   const goalLine =
     derivedGoal === 'maintain'
       ? 'Goal: maintain your weight'
-      : `Goal: ${gaining ? 'gain' : 'lose'} ${plan.deltaLb.toFixed(0)} lbs by ${plan.dateLabel}`
+      : `Goal: ${gaining ? 'gain' : 'lose'} ${delta.toFixed(units === 'metric' ? 1 : 0)} ${weightUnitLabel(units)} by ${plan.dateLabel}`
 
   const features = featureDefaultsFor(a.blocker)
   const diet = a.dietStyle ? DIET_BIAS[a.dietStyle] : null
@@ -110,7 +117,7 @@ export default function PlanScreen() {
 
         <View style={{ marginTop: space.xl }}>
           <ProgressChart
-            targetLabel={`${kgToLb(a.desiredWeightKg ?? a.weightKg ?? 80).toFixed(1)} lbs`}
+            targetLabel={formatWeight(a.desiredWeightKg ?? a.weightKg ?? 80, units)}
             dateLabel={derivedGoal === 'maintain' ? 'Ongoing' : plan.dateLabel}
             gaining={gaining}
           />
@@ -188,8 +195,12 @@ export default function PlanScreen() {
             Based on your inputs.
           </Text>
           <View style={[styles.mathCard, { backgroundColor: theme.bgElevated }]}>
-            <InfoRow icon="person" label="Starting weight" value={`${kgToLb(a.weightKg ?? 80).toFixed(1)} lbs`} />
-            <InfoRow icon="target" label="Goal weight" value={`${kgToLb(a.desiredWeightKg ?? a.weightKg ?? 80).toFixed(1)} lbs`} />
+            <InfoRow icon="person" label="Starting weight" value={formatWeight(a.weightKg ?? 80, units)} />
+            <InfoRow
+              icon="target"
+              label="Goal weight"
+              value={formatWeight(a.desiredWeightKg ?? a.weightKg ?? 80, units)}
+            />
             <InfoRow icon="steps" label="Activity level" value={activityFor(a.workoutsPerWeek)} />
             {diet ? <InfoRow icon="bowl" label="Diet" value={diet.label} /> : null}
           </View>

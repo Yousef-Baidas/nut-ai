@@ -4,12 +4,25 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle, Line as SvgLine, Path, Rect, Text as SvgText } from 'react-native-svg'
 import { bmi, computeTrend, trendSlopeLbPerWeek, type TrendPoint, type WeightPoint } from '@nutai/goals'
-import { currentGoal, db, setting, weightHistory, type CurrentGoal } from '../../src/data/repo'
+import {
+  currentGoal,
+  db,
+  setting,
+  unitSystem,
+  weightHistory,
+  type CurrentGoal,
+} from '../../src/data/repo'
+import {
+  displayWeight,
+  formatRate,
+  formatWeight,
+  formatWeightDelta,
+  isNegligibleDelta,
+  type UnitSystem,
+} from '../../src/units/format'
 import { Icon } from '../../src/components/Icon'
 import { useTheme } from '../../src/theme/ThemeProvider'
 import { radius, space, type } from '../../src/theme/tokens'
-
-const LB_PER_KG = 2.20462
 
 const WINDOWS = [
   { key: '90D', days: 90 },
@@ -30,18 +43,22 @@ export default function Progress() {
   const [goalKg, setGoalKg] = useState<number | null>(null)
   const [streak, setStreak] = useState(0)
   const [window, setWindow] = useState<(typeof WINDOWS)[number]['key']>('90D')
+  // Re-read on focus, not once on mount: the Profile screen can flip this while
+  // Progress is still mounted behind it, and coming back must show the new unit.
+  const [units, setUnits] = useState<UnitSystem>('imperial')
 
   useFocusEffect(
     useCallback(() => {
       let alive = true
       void (async () => {
         const h = await db()
-        const [pts, g, target, profile, days] = await Promise.all([
+        const [pts, g, target, profile, days, u] = await Promise.all([
           weightHistory(),
           currentGoal(),
           setting('goal.desiredWeightKg', ''),
           h.get<{ height_cm: number }>('SELECT height_cm FROM user_profile WHERE id = 1'),
           h.all<{ local_date: string }>('SELECT DISTINCT local_date FROM meals ORDER BY local_date DESC'),
+          unitSystem(),
         ])
         if (!alive) return
         setPoints(pts)
@@ -49,6 +66,7 @@ export default function Progress() {
         setGoalKg(target ? Number(target) : null)
         setHeightCm(profile?.height_cm ?? null)
         setStreak(countStreak(days.map((d) => d.local_date)))
+        setUnits(u)
       })()
       return () => {
         alive = false
@@ -107,19 +125,17 @@ export default function Progress() {
             <Text style={[type.label, { color: theme.protein }]}>Log weight</Text>
           </Pressable>
         </View>
-        <Text style={[styles.big, { color: theme.text }]}>
-          {currentKg != null ? `${(currentKg * LB_PER_KG).toFixed(1)} lbs` : '—'}
-        </Text>
+        <Text style={[styles.big, { color: theme.text }]}>{formatWeight(currentKg, units)}</Text>
 
         <View style={[styles.bar, { backgroundColor: theme.ringTrack }]}>
           <View style={{ width: `${pctOfGoal * 100}%`, height: 6, borderRadius: 3, backgroundColor: theme.text }} />
         </View>
         <View style={styles.spread}>
           <Text style={[type.caption, { color: theme.textMuted }]}>
-            Start: {startKg != null ? `${(startKg * LB_PER_KG).toFixed(1)} lbs` : '—'}
+            Start: {formatWeight(startKg, units)}
           </Text>
           <Text style={[type.caption, { color: theme.textMuted }]}>
-            Goal: {goalKg != null ? `${(goalKg * LB_PER_KG).toFixed(1)} lbs` : '—'}
+            Goal: {formatWeight(goalKg, units)}
           </Text>
         </View>
       </View>
@@ -137,7 +153,7 @@ export default function Progress() {
             No weigh-ins yet. It takes about five before a slope means anything.
           </Text>
         ) : (
-          <WeightChart trend={visible} />
+          <WeightChart trend={visible} units={units} />
         )}
 
         <View style={[styles.segment, { backgroundColor: theme.bgElevated }]}>
@@ -169,20 +185,18 @@ export default function Progress() {
       <View style={[styles.card, { backgroundColor: theme.bgSunken }]}>
         <Text style={[type.heading, { color: theme.text }]}>Weight changes</Text>
         {CHANGE_WINDOWS.map((d) => (
-          <ChangeRow key={d} label={`${d} day`} lbs={changeOver(trend, d)} />
+          <ChangeRow key={d} label={`${d} day`} kg={changeOver(trend, d)} units={units} />
         ))}
-        <ChangeRow label="All time" lbs={changeOver(trend, Number.POSITIVE_INFINITY)} />
+        <ChangeRow label="All time" kg={changeOver(trend, Number.POSITIVE_INFINITY)} units={units} />
         <Text style={[type.caption, { color: theme.textFaint, marginTop: space.md, lineHeight: 18 }]}>
-          Measured on the trend line, not raw weigh-ins — a 3 lb overnight swing is water, and
-          reporting it as a change would be reporting noise as progress.
+          Measured on the trend line, not raw weigh-ins — a {units === 'metric' ? '1.5 kg' : '3 lb'}{' '}
+          overnight swing is water, and reporting it as a change would be reporting noise as progress.
         </Text>
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.bgSunken }]}>
         <Text style={[type.heading, { color: theme.text }]}>Rate of change</Text>
-        <Text style={[styles.big, { color: theme.text }]}>
-          {slope == null ? '—' : `${slope > 0 ? '+' : ''}${slope.toFixed(2)} lb/wk`}
-        </Text>
+        <Text style={[styles.big, { color: theme.text }]}>{formatRate(slope, units)}</Text>
         <Text style={[type.caption, { color: theme.textMuted }]}>
           {slope == null ? 'Not enough weigh-ins yet.' : `From ${raw.length} weigh-ins.`}
         </Text>
@@ -237,25 +251,33 @@ function iso(ms: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Change over N days, measured on the TREND rather than raw entries. */
+/**
+ * Change over N days, measured on the TREND rather than raw entries.
+ *
+ * Returns KILOGRAMS. It used to return pounds, which meant the unit choice was
+ * baked into a data function and every caller inherited it.
+ */
 function changeOver(trend: TrendPoint[], days: number): number | null {
   const last = trend[trend.length - 1]
   const first = trend[0]
   if (!last || !first) return null
   const target = Number.isFinite(days) ? last.day - days : first.day
   const start = [...trend].reverse().find((p) => p.day <= target) ?? first
-  return (last.trendKg - start.trendKg) * LB_PER_KG
+  return last.trendKg - start.trendKg
 }
 
-function ChangeRow({ label, lbs }: { label: string; lbs: number | null }) {
+function ChangeRow({ label, kg, units }: { label: string; kg: number | null; units: UnitSystem }) {
   const theme = useTheme()
-  const none = lbs == null || Math.abs(lbs) < 0.05
-  const up = (lbs ?? 0) > 0
+  // "No change" is judged on the DISPLAYED number: if it renders 0.0 it must not
+  // simultaneously claim a direction. The threshold is finer in kg than in lbs,
+  // which is correct — a kilogram is the bigger unit.
+  const none = isNegligibleDelta(kg, units)
+  const up = (kg ?? 0) > 0
   return (
     <View style={styles.changeRow}>
       <Text style={[type.body, { color: theme.textMuted, width: 78 }]}>{label}</Text>
       <Text style={[type.bodyStrong, { color: theme.text, flex: 1 }]}>
-        {lbs == null ? '—' : `${lbs > 0 ? '+' : ''}${lbs.toFixed(1)} lbs`}
+        {formatWeightDelta(kg, units)}
       </Text>
       <Text style={[type.caption, { color: none ? theme.textMuted : theme.protein }]}>
         {none ? 'No change' : up ? 'Increase' : 'Decrease'}
@@ -264,7 +286,7 @@ function ChangeRow({ label, lbs }: { label: string; lbs: number | null }) {
   )
 }
 
-function WeightChart({ trend }: { trend: TrendPoint[] }) {
+function WeightChart({ trend, units }: { trend: TrendPoint[]; units: UnitSystem }) {
   const theme = useTheme()
   const W = 300
   const H = 170
@@ -293,7 +315,7 @@ function WeightChart({ trend }: { trend: TrendPoint[] }) {
       ))}
       {gridVals.map((v, i) => (
         <SvgText key={`t${i}`} x={2} y={y(v) + 4} fontSize="10" fill={theme.textFaint}>
-          {(v * LB_PER_KG).toFixed(0)}
+          {displayWeight(v, units).toFixed(0)}
         </SvgText>
       ))}
       {trend.map((p, i) =>

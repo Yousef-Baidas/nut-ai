@@ -6,7 +6,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { ProviderId } from '@nutai/prompt'
 import { availability, requestPermissions } from '../../src/health/healthkit'
 import { exportAndShareBackup, finishRestore, importBackup, pickBackupFile } from '../../src/data/backup'
-import { currentGoal, resetEverything, setting, type CurrentGoal } from '../../src/data/repo'
+import {
+  currentGoal,
+  profileHeightCm,
+  resetEverything,
+  setting,
+  setUnitSystem,
+  unitSystem,
+  type CurrentGoal,
+} from '../../src/data/repo'
+import { formatHeight, type UnitSystem } from '../../src/units/format'
 import { loadCredential, maskCredential } from '../../src/inference/credentials'
 import { PROVIDER_NAME } from '../../src/components/CredentialForm'
 import { Icon } from '../../src/components/Icon'
@@ -37,20 +46,26 @@ export default function Profile() {
   const [diet, setDiet] = useState('')
   const [providerLabel, setProviderLabel] = useState('—')
   const [dataBusy, setDataBusy] = useState(false)
+  const [units, setUnits] = useState<UnitSystem>('imperial')
+  const [heightCm, setHeightCm] = useState<number | null>(null)
 
   useFocusEffect(
     useCallback(() => {
       let alive = true
       void (async () => {
-        const [g, avail, d, p] = await Promise.all([
+        const [g, avail, d, p, u, cm] = await Promise.all([
           currentGoal(),
           availability(),
           setting('diet.style', 'balanced'),
           setting('provider'),
+          unitSystem(),
+          profileHeightCm(),
         ])
         if (!alive) return
         setGoal(g)
         setDiet(d)
+        setUnits(u)
+        setHeightCm(cm)
         setHealthAvail(avail === 'available' ? 'available' : avail === 'not-ios' ? 'not-ios' : 'unavailable')
         if (!p || p === 'none') {
           setProviderLabel('Not connected')
@@ -69,6 +84,20 @@ export default function Profile() {
       }
     }, []),
   )
+
+  /**
+   * Switching units rewrites NOTHING but the preference.
+   *
+   * Every stored measurement is already metric — `weights.weight_kg`,
+   * `user_profile.height_cm`, and the goal maths — so imperial is purely a render
+   * skin. That is what makes this toggle safe to flip at any time: there is no
+   * migration, no rounding loss, and no way for it to corrupt a weight history.
+   */
+  function changeUnits(next: UnitSystem) {
+    if (next === units) return
+    setUnits(next)
+    void setUnitSystem(next)
+  }
 
   function connectHealth() {
     if (healthBusy) return
@@ -176,6 +205,8 @@ export default function Profile() {
           onPress={() => router.push('/edit-goals' as never)}
         />
         <Row label="Log weight" value="" onPress={() => router.push('/log-weight' as never)} />
+        <UnitsRow units={units} onChange={changeUnits} />
+        <Row label="Height" value={formatHeight(heightCm, units)} />
         <Row label="Diet style" value={diet} />
         <Row
           label="Adaptive target"
@@ -299,6 +330,47 @@ function Row({ label, value, onPress }: { label: string; value: string; onPress?
   )
 }
 
+/**
+ * The units control.
+ *
+ * A segmented control rather than a chevron into a sub-screen: there are exactly
+ * two choices and the effect is visible immediately on this very screen (the
+ * Height row below it re-renders), so a navigation push would cost a round trip
+ * to change one bit.
+ */
+function UnitsRow({ units, onChange }: { units: UnitSystem; onChange: (u: UnitSystem) => void }) {
+  const theme = useTheme()
+  const OPTIONS: ReadonlyArray<{ key: UnitSystem; label: string }> = [
+    { key: 'imperial', label: 'lbs / ft' },
+    { key: 'metric', label: 'kg / cm' },
+  ]
+
+  return (
+    <View style={[styles.row, { borderBottomColor: theme.border }]}>
+      <Text style={[type.body, { color: theme.text, flex: 1 }]}>Units</Text>
+      <View style={[styles.segment, { backgroundColor: theme.bgElevated }]}>
+        {OPTIONS.map((o) => {
+          const active = units === o.key
+          return (
+            <Pressable
+              key={o.key}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={o.label}
+              onPress={() => onChange(o.key)}
+              style={[styles.segItem, active && { backgroundColor: theme.bg }]}
+            >
+              <Text style={[type.label, { color: active ? theme.text : theme.textMuted }]}>
+                {o.label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
 function Line({ label, value }: { label: string; value: string }) {
   const theme = useTheme()
   return (
@@ -319,5 +391,15 @@ const styles = StyleSheet.create({
     paddingVertical: space.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     minHeight: 56,
+  },
+  // Matches the window selector on Progress, so a segmented control means the
+  // same thing in both places.
+  segment: { flexDirection: 'row', borderRadius: radius.md, padding: 2, gap: 2 },
+  segItem: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })
