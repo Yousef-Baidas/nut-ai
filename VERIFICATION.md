@@ -1,21 +1,56 @@
 # Verification report
 
 Every claim below was produced by running the thing, not by reading the code.
-Reproduce with `npm run check` plus `npm run data:build && npm run data:verify`.
 
-| Gate | Command | Result |
-|---|---|---|
-| Unit + property + integration tests | `npx vitest run` | **252 passed**, 13 files |
-| Typecheck — packages | `tsc -p tsconfig.json` | clean, strict |
-| Typecheck — app | `tsc --noEmit` in `apps/mobile` | clean, strict |
-| Node-purity gate | `node scripts/check-node-purity.mjs` | **11/11 packages** React-Native-free |
-| Corpus golden queries | `npm run data:verify` | **26/26 passed**, corpus accepted |
-| iOS bundle | `expo export --platform ios` | **1,597 modules**, 3.7 MB |
+**Re-measured 2026-08-11** on `0863bd6`, Linux, Node v24.13.0 / npm 11.6.2 /
+tsc 5.9.3. The original column was measured against upstream before this fork
+downgraded to Expo SDK 54 and stubbed HealthKit (`9111415`). Two gates hold, two
+moved, and two fail. Nothing below has been repaired — this is a measurement.
+
+**Neither reproduce command runs to completion.** `npm run check` chains with
+`&&` and starts with `npm run lint`, which exits 2 because no `eslint.config.js`
+exists (see *What is NOT built*). `npm run data:build` exits 1 because it needs a
+USDA FDC dataset that is not in the repository. Run the gates individually.
+
+| Gate | Command | Originally | Measured 2026-08-11 |
+|---|---|---|---|
+| Unit + property + integration tests | `npx vitest run` | **252 passed**, 13 files | ✅ **341 passed**, 24 files |
+| Typecheck — packages | `tsc -p tsconfig.json` | clean, strict | ❌ **27 errors** |
+| Typecheck — app | `tsc --noEmit` in `apps/mobile` | clean, strict | ❌ **1 error** |
+| Node-purity gate | `node scripts/check-node-purity.mjs` | **11/11 packages** React-Native-free | ✅ **11/11**, unchanged |
+| Corpus golden queries | `npm run data:verify` | **26/26 passed**, corpus accepted | ✅ **26/26**, unchanged |
+| iOS bundle | `expo export --platform ios` | **1,597 modules**, 3.7 MB | ⚠️ **1,685 modules**, 4.94 MB |
+| Lint | `npm run lint` | *(not listed)* | ❌ no ESLint config |
+| Corpus build | `npm run data:build` | *(not listed)* | ❌ dataset not in repo |
+
+**Tests moved up, not down.** 341 in 24 files, including `eval/src/scorers.test.ts`
+(14 tests) — the scorers are implemented and covered. The harness that would run
+them against a golden set is still absent; see *What is NOT built*.
+
+**The packages typecheck was never clean.** All 27 errors reproduce identically on
+a pristine `upstream/main` worktree, so this is not fork drift: 25 are `TS4111`
+in `packages/prompt/src/wire-transforms.ts` and its test — index-signature
+properties reached with dot access, which is precisely what
+`noPropertyAccessFromIndexSignature` forbids — and 2 are `TS2345` in
+`packages/totals/src/totals.test.ts:141`, a `MacroTotals` literal missing the
+required `sugar_g`. The "clean, strict" claim and the code that violates it
+arrived in the same commit, `08a342b`.
+
+**The app typecheck failure is fork-introduced.**
+`apps/mobile/src/health/healthkit.ts:51` imports
+`@kingstinct/react-native-healthkit`, which upstream declared as `^14.0.2` and
+which `9111415` removed when it stubbed HealthKit for Expo Go. The specifier is
+still imported; the dependency and its types are gone.
+
+**The bundle grew.** SDK 57 → 54 changed the module graph: 1,685 modules against
+the claimed 1,597. The 4.94 MB is the `.hbc` bundle; the 4.91 MB `nutrition.db`
+ships beside it as an asset, not inside it.
 
 Strict mode means `strict` plus `noUncheckedIndexedAccess`,
 `exactOptionalPropertyTypes`, `noImplicitOverride`,
 `noPropertyAccessFromIndexSignature` and `verbatimModuleSyntax`. Two of the bugs
-below were caught by those flags alone.
+below were caught by those flags alone — and, as measured above, two files have
+never satisfied them.
 
 ---
 
