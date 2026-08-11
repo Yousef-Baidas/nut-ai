@@ -1,16 +1,26 @@
 # Verification report
 
-Every claim below was produced by running the thing, not by reading the code.
+**This file is evidence, not a contract.** It records what happened when
+commands were run against this fork. It does not say what the app should do —
+the README is the contract, and where this file and the README disagree, the
+README wins. It also does not carry shipped / partial / never-built status;
+that belongs to the ratified spec (#18). Ruled on #13.
+
+Each section below states its own freshness. The document as a whole has no
+single as-of date, and an undated claim here has not been re-run.
+
+## Gates
 
 **Re-measured 2026-08-11** on `0863bd6`, Linux, Node v24.13.0 / npm 11.6.2 /
-tsc 5.9.3. The original column was measured against upstream before this fork
-downgraded to Expo SDK 54 and stubbed HealthKit (`9111415`). Two gates hold, two
-moved, and two fail. Nothing below has been repaired — this is a measurement.
+tsc 5.9.3 — this stamp covers this section only. The original column was
+measured against upstream before this fork downgraded to Expo SDK 54 and stubbed
+HealthKit (`9111415`). Two gates hold, two moved, and two fail. Nothing was
+repaired to make them pass — this is a measurement.
 
 **Neither reproduce command runs to completion.** `npm run check` chains with
 `&&` and starts with `npm run lint`, which exits 2 because no `eslint.config.js`
-exists (see *What is NOT built*). `npm run data:build` exits 1 because it needs a
-USDA FDC dataset that is not in the repository. Run the gates individually.
+exists. `npm run data:build` exits 1 because it needs a USDA FDC dataset that is
+not in the repository. Run the gates individually.
 
 | Gate | Command | Originally | Measured 2026-08-11 |
 |---|---|---|---|
@@ -25,7 +35,7 @@ USDA FDC dataset that is not in the repository. Run the gates individually.
 
 **Tests moved up, not down.** 341 in 24 files, including `eval/src/scorers.test.ts`
 (14 tests) — the scorers are implemented and covered. The harness that would run
-them against a golden set is still absent; see *What is NOT built*.
+them against a golden set is still absent (#2, #8).
 
 **The packages typecheck was never clean.** All 27 errors reproduce identically on
 a pristine `upstream/main` worktree, so this is not fork drift: 25 are `TS4111`
@@ -56,22 +66,34 @@ never satisfied them.
 
 ## What the tests actually prove
 
-### The two defining bugs are structurally impossible
+*Claims in this section were re-audited against the code on 2026-08-11 (#13).
+The measurements held; four claims overstated what they measured and have been
+narrowed to what was actually run.*
+
+### The two defining bugs are unreachable — one structurally, one by clamp
 
 **A 27-million-calorie output cannot reach a user.** `@nutai/clamp` recomputes
 calories from macros via Atwater whenever the model's own figure disagrees by
 more than 15%, and the test asserts the string `27000000` appears nowhere in the
-output. This runs on every scan, on both inference paths, and is not skippable.
+output. This is a runtime guarantee, not a structural one: nothing at the type or
+Zod level bounds `calories_kcal`, so the protection is one pure function that
+every caller goes through, plus the tests that pin it. `clamp(validated)` is
+unconditional in `runPipeline` before any path branch, and the app's only scan
+entry is `runPipeline`, so it is not skippable — though only the cloud path
+exists today, so "both inference paths" is structural, not exercised.
 It ships *before* any LLM verifier, not instead of one: a second model call to
 check the first model's arithmetic costs money, adds latency, and can itself be
 wrong. Arithmetic cannot.
 
 **A macro edit cannot leave calories stale.** The reported failure — protein
 edited 226 g → 175 g with calories frozen at 2,964 kcal — is unreachable because
-no field exists for a stale total to live in. Totals derive from
-`(grams, per-100g snapshot)` on every read. A **500-run property test** over
-arbitrary add / remove / edit-grams / set-fraction sequences asserts the total
-always equals the sum of its own rows. A single-example test would not have
+no field exists for a stale total to live in. This one *is* structural:
+`LoggedMeal` has no totals field and `IngredientRow` carries only `grams` plus a
+per-100g snapshot, so totals derive on every read. A **500-run property test**
+over arbitrary add / remove / edit-grams / set-fraction sequences asserts the
+total matches an independently computed expectation, and a second **300-run**
+test asserts it equals the sum of its own per-row contributions. A
+single-example test would not have
 caught the original bug either, because it only appears after a specific
 *sequence*.
 
@@ -82,10 +104,16 @@ the real 7,928-food corpus:
 
 - A three-item plate resolves every item to a genuine USDA row — **zero** fall to
   the AI-estimate path
-- **Twenty common foods resolve with zero zero-hits**, well under the 5% rate that
-  §5.5 sets as the trigger to add an embedding layer
+- **Twenty common foods resolve with zero zero-hits**, well under the 5% rate
+  said to trigger adding an embedding layer. That threshold was cited to
+  `SPEC-accuracy-engine.md §5.5`, a file that never existed; the surviving
+  archive coordinate `docs/inherited-design.md` **I §5.5** is "Candidate
+  scoring" and contains no zero-hit rate and no embedding trigger. The 5% figure
+  has no source in this repository.
 - Displayed calories are reproducible from displayed macros across ten real foods
-- No item exceeds a physically possible energy density
+- Six hand-picked high-fat foods (banana, butter, olive oil, cheddar, almonds,
+  lard) stay within a physically possible energy density. This is a spot check,
+  not a corpus-wide sweep
 - A full scan completes in **under 500 ms**
 
 ### Honesty is measurable, not aspirational
@@ -95,15 +123,22 @@ because its band claimed ±1% and missed the truth. That is the ship-blocker the
 whole product rests on: being wrong is survivable, claiming confidence you have
 not earned is not.
 
-`baselines.json` self-declares `provenance: "seeded"` and every stratum carries a
-citation for where its number came from. It flips to `"measured"` only after a
-real golden-set run.
+`baselines.json` self-declares `provenance: "seeded"`. **Five of its eight strata
+carry a citation** for where their number came from — `C_simple_cooked` (0.25),
+`G_cuisine_diverse` (0.40) and `H_test_retest` (0.20) do not, and this file
+previously claimed every stratum did. `"measured"` exists as a type and a
+database column, but no code writes it: the intent is that it flips only after a
+real golden-set run, and nothing enforces that, because the runner and the golden
+set do not exist (#2, #8).
 
 ---
 
 ## Nine real bugs found and fixed
 
-Listed because each one was a genuine defect, not a test adjustment.
+Listed because each one was a genuine defect, not a test adjustment. This is a
+historical record of fixes as they were made, and is not edited to match later
+code — the two items marked *superseded* were true when written and no longer
+describe this fork.
 
 1. **The clamp rejected real food.** `MAX_KCAL_PER_100G` was 900 on the reasoning
    that "pure fat is ~884". Real USDA data says otherwise: `Fat, beef tallow`,
@@ -146,12 +181,19 @@ Listed because each one was a genuine defect, not a test adjustment.
    the app runs different bytes from the harness).
 
 8. **`newArchEnabled` no longer exists** in `ExpoConfig` — the New Architecture is
-   the default in SDK 57 and the option was removed.
+   the default in SDK 57 and the option was removed. *Superseded: this fork runs
+   SDK 54, where `newArchEnabled` is still a valid `ExpoConfig` key. The same
+   staleness survives in `app.config.ts:27-29`, which still argues the option was
+   removed.*
 
 9. **The spec's assumed `reanimated ~4.1` cannot install** against SDK 57: it
-   peer-deps to RN 0.78–0.82 and the SDK ships RN 0.86.
+   peer-deps to RN 0.78–0.82 and the SDK ships RN 0.86. *Superseded: the SDK 57
+   premise no longer holds on this fork.*
 
 ## Two research gaps closed
+
+*Re-audited 2026-08-11 (#13). Both claims hold in the code; their citations to a
+spec file that never existed have been repointed at the archive.*
 
 **FDC column names, previously UNCONFIRMED.** Two prior research passes could not
 read USDA's field-description PDF (403 both times), so the shape of
@@ -159,7 +201,9 @@ read USDA's field-description PDF (403 both times), so the shape of
 amount, measure_unit_id, portion_description, modifier, gram_weight`. The build
 validates every header and fails loudly on a mismatch.
 
-**A self-contradiction in `SPEC-accuracy-engine.md` §6.3.** The stated rounding
+**A self-contradiction at `docs/inherited-design.md` I §6.3** (inherited from the
+never-existent `SPEC-accuracy-engine.md`; the archive preserves it unrepaired at
+`:469-479`). The stated rounding
 rule ("one decimal for grams under 10 g") contradicts its own worked example,
 which rounds 6.19 g fat to `6` and reports 466 kcal. We follow the stated rule
 (6.2 g → 468 kcal): it preserves information that matters at a ~60 g daily fat
@@ -168,27 +212,14 @@ macros — holds either way. Documented at the test.
 
 ---
 
-## What is NOT built
+## Where status lives
 
-Stated plainly so nothing here reads as more finished than it is.
+This file used to carry a "What is NOT built" section. It was a shipped /
+partial / never-built status list, undated since `08a342b`, and most of its
+entries were false by the time #13 measured them — it named screens as
+unbuilt that ship today, and named three placeholder screens that do not exist
+at all.
 
-**Blocked on you, by design:**
-- Path B on-device inference (M3) — needs your physical iPhone/Android
-- Golden-set ground truth (M4) — needs a kitchen scale and real food; ~40–60
-  dishes after the Nutrition5k import, down from the plan's 200
-- Store submission (M7) — needs your Apple and Google accounts
-
-**Not built:**
-- Onboarding (12 screens), goals UI, key-entry screen
-- Trends / Foods / You are placeholder screens
-- Offline queue, barcode scanning UI, saved meals, custom foods
-- HealthKit, Health Connect, widgets (M6)
-- Branded-foods tier and the five verified-open national tables (UK CoFID, Japan
-  MEXT, France CIQUAL, Germany BLS, Australia FSANZ) — the pipeline is built and
-  they are additive stages
-- ESLint config, so `npm run lint` currently fails; the three M0 rules do not
-  exist yet
-- No dev-client build has run on physical hardware
-
-Honestly: **M0 and M0.5 complete, M1 complete, M2 and M5–M8 untouched.** Roughly
-8–10 of the plan's 20+ engineer-weeks.
+Status is not evidence, and it is not reproducible by running anything, so it
+does not belong in this file. It lives in the ratified spec (#18), which was
+seeded with the deleted text and its corrections.
