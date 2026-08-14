@@ -25,6 +25,9 @@ import { setting } from '../data/repo'
 import { loadCredential, type StoredCredential } from '../inference/credentials'
 import { runLabelScan, runReceiptScan, runScanWithFallback, runWebLookup } from '../inference/pathA/client'
 import { applyWebOption, getPhase, setPhase, setWebLookup } from './store'
+import { rowFromCorpusFood, rowFromManualEntry, scaleRows, type CorpusFoodRow, type ManualEntry } from './rows'
+
+export type { ManualEntry } from './rows'
 
 /**
  * The scan orchestrator — capture in, ready-to-review meal out.
@@ -112,7 +115,7 @@ async function analyze(photoUri: string, base64: string, opts: AnalyzeOpts = {})
       kind: 'failed',
       photoUri,
       message:
-        'Photo scans need an API key. Add one in Profile — barcode, search and manual logging work without one.',
+        'Photo scans need an API key. Add one in Profile. Text search and manual entry work without one.',
       canRetry: false,
       failureKind: 'no-key',
     })
@@ -353,7 +356,11 @@ function readyFromRows(
         ? 'Transcribed from the printed nutrition label'
         : r.origin === 'web_lookup'
           ? 'Transcribed from published nutrition facts'
-          : 'Matched by barcode to a labeled product',
+          : r.origin === 'db_search'
+            ? 'Matched to a USDA corpus food, at a portion you chose'
+            : r.origin === 'manual_custom'
+              ? 'Numbers you entered yourself'
+              : 'Matched by barcode to a labeled product',
     ],
   }))
   const { totals, mealBand } = recomputeAfterEdit(meal, bands)
@@ -363,7 +370,10 @@ function readyFromRows(
     items: rows.map((row, i) => ({
       row,
       band: bands[i]!,
-      resolution: 'barcode',
+      // A row the user picked or typed is resolved, not merely guessed at —
+      // 'miss' would put an amber AI-estimate badge on ground truth.
+      resolution:
+        row.origin === 'db_search' || row.origin === 'manual_custom' ? 'auto_accept' : 'barcode',
       gramPathway: row.gramPathway,
     })),
     meal,
@@ -448,7 +458,8 @@ export async function startBarcodeScan(gtin: string): Promise<void> {
     setPhase({
       kind: 'failed',
       photoUri: '',
-      message: 'This barcode is not in the bundled database. The Food label mode reads the printed panel directly and works without a key.',
+      message:
+        'This barcode is not in the bundled database — the shipped USDA corpus is generic-tier and carries no barcodes at all. Search for the food by name, or enter it by hand. (Label reading needs an API key.)',
       canRetry: false,
     })
     return
@@ -466,7 +477,8 @@ export async function startBarcodeScan(gtin: string): Promise<void> {
     setPhase({
       kind: 'failed',
       photoUri: '',
-      message: 'Could not find this barcode in the database or online. Try the Food label mode — it reads the printed panel directly.',
+      message:
+        'Could not find this barcode in the bundled database or online. Search for the food by name, or enter it by hand.',
       canRetry: false,
     })
     return
@@ -759,4 +771,52 @@ export async function lookupOther(rowId: string, typed: string): Promise<void> {
   if (parsed.data.options.length === 1) {
     applyWebOption(rowId, parsed.data.options[0]!, parsed.data.source_url)
   }
+}
+
+// ---------------------------------------------------------------------------
+// The keyless paths — search, manual entry, saved meals
+// ---------------------------------------------------------------------------
+
+/**
+ * Log a corpus food the user found by text search.
+ *
+ * Goes through `readyFromRows`, so a searched food arrives on the review screen
+ * as the same kind of object a barcode or label scan produces — editable rows,
+ * a band, one `Log it`. There is no second logging path to keep in sync.
+ *
+ * Returns false when the corpus row vanished between search and tap, which is
+ * the caller's cue to say so rather than to open an empty review screen.
+ */
+export async function startSearchLog(foodId: string, grams: number): Promise<boolean> {
+  let food: CorpusFoodRow | null = null
+  try {
+    const ndb = await openNutritionDb()
+    food = await ndb.get<CorpusFoodRow>(
+      `SELECT id, name, energy_kcal, protein_g, fat_g, carb_g, fiber_g, sugar_g, sodium_mg
+         FROM foods WHERE id = ? LIMIT 1`,
+      [foodId],
+    )
+  } catch {
+    food = null
+  }
+  if (!food) return false
+
+  readyFromRows([rowFromCorpusFood(food, grams, Date.now())], null, 'search-log', null)
+  return true
+}
+
+/** Log a food the user typed by hand. No database read, no network, no key. */
+export function startManualLog(entry: ManualEntry): void {
+  readyFromRows([rowFromManualEntry(entry, Date.now())], null, 'manual-entry', null)
+}
+
+/**
+ * Relog a saved meal, at `factor` of its saved size.
+ *
+ * The saved rows already carry their own snapshots, which is the whole point of
+ * storing the corrected ingredient array instead of a name to re-analyze:
+ * relogging costs zero network requests and asks zero questions.
+ */
+export function startSavedMealLog(rows: readonly IngredientRow[], factor: number): void {
+  readyFromRows(scaleRows(rows, factor, Date.now()), null, 'saved-meal', null)
 }
