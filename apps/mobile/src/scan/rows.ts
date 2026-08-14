@@ -1,4 +1,5 @@
 import type { IngredientRow } from '@nutai/core-schema'
+import type { ScanResult } from '@nutai/pipeline'
 
 /**
  * Ingredient rows for the three keyless origins: a corpus food picked out of
@@ -110,4 +111,56 @@ export function scaleRows(
 ): IngredientRow[] {
   const f = Number.isFinite(factor) && factor > 0 ? factor : 1
   return rows.map((r) => ({ ...r, id: rowId(now), grams: r.grams * f }))
+}
+
+/**
+ * Band reason per origin, honest about what actually produced the row.
+ *
+ * `readyFromRows` (orchestrator.ts) is fed by SIX call sites — barcode, label,
+ * receipt, and the three keyless seams here (search, manual, saved-meal-relog).
+ * A saved meal can carry ANY origin the app has ever written, including
+ * `vision_model` and `assumption_filler` rows from a prior photo scan. Falling
+ * through to the barcode string for those would claim a barcode match that
+ * never happened.
+ */
+export function bandReasonFor(origin: IngredientRow['origin']): string {
+  switch (origin) {
+    case 'label_ocr':
+      return 'Transcribed from the printed nutrition label'
+    case 'web_lookup':
+      return 'Transcribed from published nutrition facts'
+    case 'db_search':
+      return 'Matched to a USDA corpus food, at a portion you chose'
+    case 'manual_custom':
+      return 'Numbers you entered yourself'
+    case 'barcode':
+      return 'Matched by barcode to a labeled product'
+    case 'vision_model':
+    case 'assumption_filler':
+      return 'Estimated from the photo'
+    default:
+      return 'Estimated'
+  }
+}
+
+/**
+ * Resolution per origin. Only a row the user picked or typed (`db_search`,
+ * `manual_custom`) or one that matched an exact barcode/label/citation
+ * (`barcode`, `label_ocr`, `web_lookup`) is `auto_accept` / `barcode` —
+ * everything else (a bare model estimate, e.g. `vision_model` or
+ * `assumption_filler` surfacing on a relogged saved meal) is a `miss`, never
+ * a borrowed barcode label it did not earn.
+ */
+export function resolutionFor(origin: IngredientRow['origin']): ScanResult['items'][number]['resolution'] {
+  switch (origin) {
+    case 'db_search':
+    case 'manual_custom':
+      return 'auto_accept'
+    case 'barcode':
+    case 'label_ocr':
+    case 'web_lookup':
+      return 'barcode'
+    default:
+      return 'miss'
+  }
 }

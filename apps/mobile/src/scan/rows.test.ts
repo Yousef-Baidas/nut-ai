@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { bandTier } from '@nutai/confidence'
 import type { IngredientRow } from '@nutai/core-schema'
-import { rowFromCorpusFood, rowFromManualEntry, scaleRows, type CorpusFoodRow } from './rows'
+import {
+  bandReasonFor,
+  resolutionFor,
+  rowFromCorpusFood,
+  rowFromManualEntry,
+  scaleRows,
+  type CorpusFoodRow,
+} from './rows'
 
 /**
  * The keyless origins' rows.
@@ -117,5 +125,70 @@ describe('scaleRows', () => {
   it('is the identity at factor 1, apart from the id', () => {
     const [row] = scaleRows(saved, 1, NOW)
     expect({ ...row, id: 'row_old_1' }).toEqual(saved[0])
+  })
+})
+
+/**
+ * `readyFromRows` in orchestrator.ts (untestable directly under Vitest — it
+ * transitively imports react-native) is fed by six call sites, including
+ * `startSavedMealLog`, which can relog a row of ANY origin ever written,
+ * including `vision_model` and `assumption_filler` from a prior photo scan.
+ * These two functions are the honesty gate: no origin may fall through to a
+ * barcode claim it did not earn.
+ */
+describe('bandReasonFor', () => {
+  it('never lets vision_model or assumption_filler fall through to a barcode claim', () => {
+    expect(bandReasonFor('vision_model')).toBe('Estimated from the photo')
+    expect(bandReasonFor('assumption_filler')).toBe('Estimated from the photo')
+  })
+
+  it('keeps the barcode claim explicit, not a fallback default', () => {
+    expect(bandReasonFor('barcode')).toBe('Matched by barcode to a labeled product')
+  })
+
+  it('gives every keyless origin its own honest reason', () => {
+    expect(bandReasonFor('db_search')).toBe('Matched to a USDA corpus food, at a portion you chose')
+    expect(bandReasonFor('manual_custom')).toBe('Numbers you entered yourself')
+  })
+
+  it('gives label_ocr and web_lookup their transcription reasons', () => {
+    expect(bandReasonFor('label_ocr')).toBe('Transcribed from the printed nutrition label')
+    expect(bandReasonFor('web_lookup')).toBe('Transcribed from published nutrition facts')
+  })
+})
+
+describe('resolutionFor', () => {
+  it('resolves vision_model and assumption_filler as miss, never barcode', () => {
+    expect(resolutionFor('vision_model')).toBe('miss')
+    expect(resolutionFor('assumption_filler')).toBe('miss')
+  })
+
+  it('auto_accepts what the user picked or typed', () => {
+    expect(resolutionFor('db_search')).toBe('auto_accept')
+    expect(resolutionFor('manual_custom')).toBe('auto_accept')
+  })
+
+  it('reserves barcode resolution for barcode, label_ocr and web_lookup rows', () => {
+    expect(resolutionFor('barcode')).toBe('barcode')
+    expect(resolutionFor('label_ocr')).toBe('barcode')
+    expect(resolutionFor('web_lookup')).toBe('barcode')
+  })
+})
+
+/**
+ * Tier is DERIVED from bandHalfPct via the same `bandTier` function the
+ * engine's own bands use — never a hardcoded 'tight'. A manual_custom row
+ * carries bandHalfPct 0, which must resolve to 'none' (ConfidenceChip
+ * suppresses the badge only at tier 'none' — a hardcoded 'tight' would render
+ * "Estimate — tap for range" over a zero-width range).
+ */
+describe('bandTier — the tier readyFromRows now derives instead of hardcoding', () => {
+  it('maps a zero band (manual_custom) to none', () => {
+    expect(bandTier(0)).toBe('none')
+  })
+
+  it('maps a wide relogged vision-model band away from tight', () => {
+    expect(bandTier(0.4)).not.toBe('tight')
+    expect(bandTier(0.4)).toBe('wide')
   })
 })

@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator'
-import { SEEDED_BASELINES, type Band } from '@nutai/confidence'
+import { bandTier, SEEDED_BASELINES, type Band } from '@nutai/confidence'
 import {
   LabelPayloadZ,
   ReceiptPayloadZ,
@@ -25,7 +25,15 @@ import { setting } from '../data/repo'
 import { loadCredential, type StoredCredential } from '../inference/credentials'
 import { runLabelScan, runReceiptScan, runScanWithFallback, runWebLookup } from '../inference/pathA/client'
 import { applyWebOption, getPhase, setPhase, setWebLookup } from './store'
-import { rowFromCorpusFood, rowFromManualEntry, scaleRows, type CorpusFoodRow, type ManualEntry } from './rows'
+import {
+  bandReasonFor,
+  resolutionFor,
+  rowFromCorpusFood,
+  rowFromManualEntry,
+  scaleRows,
+  type CorpusFoodRow,
+  type ManualEntry,
+} from './rows'
 
 export type { ManualEntry } from './rows'
 
@@ -350,18 +358,12 @@ function readyFromRows(
   }
   const bands: Band[] = rows.map((r) => ({
     halfPct: r.bandHalfPct,
-    tier: 'tight',
-    reasons: [
-      r.origin === 'label_ocr'
-        ? 'Transcribed from the printed nutrition label'
-        : r.origin === 'web_lookup'
-          ? 'Transcribed from published nutrition facts'
-          : r.origin === 'db_search'
-            ? 'Matched to a USDA corpus food, at a portion you chose'
-            : r.origin === 'manual_custom'
-              ? 'Numbers you entered yourself'
-              : 'Matched by barcode to a labeled product',
-    ],
+    // Derived, mirroring the same threshold function the engine bands use
+    // (`bandTier` in @nutai/confidence) — 0 half-width is 'none', never a
+    // hardcoded 'tight' that overstates a zero-width manual-entry band or
+    // understates a wide relogged vision-model band.
+    tier: bandTier(r.bandHalfPct),
+    reasons: [bandReasonFor(r.origin)],
   }))
   const { totals, mealBand } = recomputeAfterEdit(meal, bands)
   const result: ScanResult = {
@@ -370,10 +372,7 @@ function readyFromRows(
     items: rows.map((row, i) => ({
       row,
       band: bands[i]!,
-      // A row the user picked or typed is resolved, not merely guessed at —
-      // 'miss' would put an amber AI-estimate badge on ground truth.
-      resolution:
-        row.origin === 'db_search' || row.origin === 'manual_custom' ? 'auto_accept' : 'barcode',
+      resolution: resolutionFor(row.origin),
       gramPathway: row.gramPathway,
     })),
     meal,
