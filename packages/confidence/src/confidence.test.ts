@@ -226,6 +226,7 @@ describe('meal bands compound rather than average', () => {
 
 describe('presentation', () => {
   it('maps half-widths onto ordered tiers', () => {
+    expect(bandTier(0)).toBe('none')
     expect(bandTier(0.02)).toBe('none')
     expect(bandTier(0.12)).toBe('tight')
     expect(bandTier(0.25)).toBe('moderate')

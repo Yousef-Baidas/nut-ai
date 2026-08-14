@@ -35,6 +35,7 @@ interface Action {
 const ACTIONS: Action[] = [
   { label: 'Log exercise', icon: 'dumbbell', route: '/log-exercise' },
   { label: 'Saved foods', icon: 'bookmark', route: '/saved-foods' },
+  { label: 'Enter by hand', icon: 'pencil', route: '/manual-entry' },
   { label: 'Food Database', icon: 'search', route: '/food-search' },
   { label: 'Scan food', icon: 'scan', route: '/camera' },
 ]

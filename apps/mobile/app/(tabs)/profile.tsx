@@ -4,7 +4,8 @@ import { Alert, Linking } from 'react-native'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { ProviderId } from '@nutai/prompt'
-import { availability, requestPermissions } from '../../src/health/healthkit'
+import { availability } from '../../src/health/healthkit'
+import { disableHealthSync, enableHealthSync, healthSyncEnabled } from '../../src/health/meal-sync'
 import { exportAndShareBackup, finishRestore, importBackup, pickBackupFile } from '../../src/data/backup'
 import {
   currentGoal,
@@ -43,6 +44,7 @@ export default function Profile() {
   const [goal, setGoal] = useState<CurrentGoal | null>(null)
   const [healthAvail, setHealthAvail] = useState<'available' | 'not-ios' | 'unavailable' | 'checking'>('checking')
   const [healthBusy, setHealthBusy] = useState(false)
+  const [healthSync, setHealthSync] = useState(false)
   const [diet, setDiet] = useState('')
   const [providerLabel, setProviderLabel] = useState('—')
   const [dataBusy, setDataBusy] = useState(false)
@@ -53,19 +55,21 @@ export default function Profile() {
     useCallback(() => {
       let alive = true
       void (async () => {
-        const [g, avail, d, p, u, cm] = await Promise.all([
+        const [g, avail, d, p, u, cm, hs] = await Promise.all([
           currentGoal(),
           availability(),
           setting('diet.style', 'balanced'),
           setting('provider'),
           unitSystem(),
           profileHeightCm(),
+          healthSyncEnabled(),
         ])
         if (!alive) return
         setGoal(g)
         setDiet(d)
         setUnits(u)
         setHeightCm(cm)
+        setHealthSync(hs)
         setHealthAvail(avail === 'available' ? 'available' : avail === 'not-ios' ? 'not-ios' : 'unavailable')
         if (!p || p === 'none') {
           setProviderLabel('Not connected')
@@ -99,22 +103,24 @@ export default function Profile() {
     void setUnitSystem(next)
   }
 
-  function connectHealth() {
+  /**
+   * The toggle IS the permission ask. Nothing requests Health access before
+   * this, and nothing writes to Health unless this is on.
+   */
+  function toggleHealthSync(next: boolean) {
     if (healthBusy) return
     setHealthBusy(true)
     void (async () => {
-      const res = await requestPermissions()
-      setHealthBusy(false)
-      // iOS never reports whether READ access was granted — claiming success
-      // here would be a lie. Say what actually happened and point at Settings.
-      if (res.prompted) {
-        Alert.alert('Done', 'If you allowed access, steps and workouts will appear as they sync.')
-      } else {
-        Alert.alert(
-          'Health did not respond',
-          'Manage access under Settings → Privacy & Security → Health, or from the button below.',
-        )
+      if (!next) {
+        await disableHealthSync()
+        setHealthSync(false)
+        setHealthBusy(false)
+        return
       }
+      const res = await enableHealthSync()
+      setHealthSync(res.enabled)
+      setHealthBusy(false)
+      Alert.alert(res.enabled ? 'Health sync is on' : 'Health sync is off', res.message)
     })()
   }
 
@@ -222,18 +228,20 @@ export default function Profile() {
         {healthAvail === 'available' ? (
           <>
             <Row
-              label={healthBusy ? 'Connecting…' : 'Connect / Reconnect'}
-              value=""
-              onPress={connectHealth}
+              label={healthBusy ? 'Working…' : 'Sync meals to Apple Health'}
+              value={healthSync ? 'On' : 'Off'}
+              onPress={() => toggleHealthSync(!healthSync)}
             />
             <Pressable onPress={() => void Linking.openSettings()} style={{ padding: space.lg, paddingTop: 0 }}>
-              <Text style={[type.caption, { color: theme.textMuted }]}>
-                Already answered the prompt? <Text style={{ color: theme.protein }}>Manage access in Settings</Text>
+              <Text style={[type.caption, { color: theme.textMuted, lineHeight: 18 }]}>
+                Each meal you log is written as one food entry. Turning this off stops us writing;
+                revoking access itself lives in{' '}
+                <Text style={{ color: theme.protein }}>Settings → Privacy &amp; Security → Health</Text>.
               </Text>
             </Pressable>
           </>
         ) : (
-          <Row label="Apple Health" value={healthAvail === 'not-ios' ? 'iOS only' : 'Unavailable on this device'} />
+          <Row label="Sync meals to Apple Health" value={healthAvail === 'not-ios' ? 'iOS only' : 'Needs a dev build'} />
         )}
       </Section>
 

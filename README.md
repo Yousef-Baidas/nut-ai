@@ -16,23 +16,35 @@ and instantly. No subscription, no paywall, no account, no server.
 - **Photo scans** with your own AI key: the model identifies components (a burger comes back as
   patty, bun, and toppings — never one blob), the deterministic engine does every number, and each
   row shows its uncertainty band and where its data came from.
-- **Four camera modes** — food photo, **barcode** (bundled-database hits cost nothing and never
-  touch a model), **nutrition label** (transcribes the printed panel, refuses to guess a missing
-  serving weight), and **receipt** (reads the line items, then fetches each item's published
-  nutrition with the merchant as the brand).
-- **Web lookup for branded and restaurant food**: when the local database misses — or a logo in
-  frame names a brand — one search against the provider's own tool transcribes the published
-  nutrition facts, source URL attached. Menu ambiguity comes back as options that each carry their
-  own macros, so answering "which sandwich?" is instant and free.
-- **Fix Result**: describe what's wrong in a sentence; only what you mention changes.
+- **Four camera modes** — food photo, **barcode** (a local-first lookup that costs nothing on a
+  hit, but the bundled corpus is USDA generic-tier and carries zero barcodes today, so in practice
+  it falls to a keyed web lookup or an honest miss screen that hands off to search and manual
+  entry), **nutrition label** (transcribes the printed panel with your AI key, refuses to guess a
+  missing serving weight), and **receipt** (reads the line items with your AI key, then fetches
+  each item's published nutrition with the merchant as the brand).
+- **Text search, manual entry and saved meals** — search the bundled 7,928-food USDA corpus and log
+  a result at a portion you pick; type a food's name and numbers yourself; or save any corrected
+  meal and relog it later at the same size or scaled, with zero questions asked. All three, and the
+  entire correction flow, work with no AI key and no network at all.
+- **Web lookup for branded and restaurant food** (needs your key): when the local database misses —
+  or a logo in frame names a brand — one search against the provider's own tool transcribes the
+  published nutrition facts, source URL attached. Menu ambiguity comes back as options that each
+  carry their own macros, so answering "which sandwich?" is instant and free.
+- **Fix Result** (needs your key): describe what's wrong in a sentence; only what you mention
+  changes. A fix re-runs the vision analysis on the original photo, so it needs the same key the
+  scan itself did.
 - **A health score with a published formula** — fixed arithmetic over what you logged, reasons shown
   on tap, never an "AI" number.
-- **Exercise logging** where Run and Weight lifting use MET × your body weight × minutes (no model),
-  Describe is the one AI-estimated path and says so, and Manual is your number verbatim.
+- **Exercise logging** where Run and Weight lifting use MET × your body weight × minutes (no model,
+  no key), Describe is the one AI-estimated path and needs your key — it says so, and falls back to
+  Run, Weight lifting or Manual if you don't have one — and Manual is your number verbatim.
 - **Adaptive targets** that re-derive from your weigh-in trend, with hand-set targets always
   respected.
 - **Export / import**: one JSON file with everything; restore it from the first onboarding screen on
   a new phone. Your API key never travels in it.
+- **Apple Health sync**, opt-in: an explicit toggle writes each logged meal's energy and macros to
+  Apple Health after you log it. Write-only — nothing is read back — and it needs a development
+  build; Expo Go stubs HealthKit out, so the toggle no-ops there.
 
 ---
 
@@ -71,8 +83,26 @@ does not offer it. The commitment it carries stands and moves with it: its accur
 measured against the kitchen-scale-weighed golden set and **published before it ships as a
 default** — free, private and works-on-a-plane is worth nothing if the numbers are unproven.
 
-Barcode scanning, label OCR, text search, manual entry and the entire correction flow work
-offline with no key at all.
+**What works with no key at all:** text search against the bundled 7,928-food USDA corpus,
+logging any of those foods at a portion you pick from its household measures, manual entry of
+a food by name and numbers, relogging anything you saved, and the entire correction flow —
+every gram edit, row removal and portion change recomputes locally from per-100 g snapshots,
+offline, instantly.
+
+**What needs your key:** photo scanning, nutrition-label reading, receipt reading, **Fix Result**
+(a correction re-runs the same vision analysis on the original photo, so it needs whatever key
+the original scan needed), **the Describe exercise path** (the only one of the three exercise
+loggers that estimates rather than computes), and **the branded-food web lookup** (used both when
+a barcode misses locally and when you name a brand or restaurant item directly). Photo scanning,
+label reading and receipt reading are provider vision calls; there is no on-device OCR in this
+build, and the label scanner fails fast and says so rather than pretending otherwise. Fix Result,
+Describe and the web lookup are provider text calls.
+
+**Barcode is a special case worth stating plainly.** The lookup is local-first and costs nothing
+on a hit, but the shipped corpus is USDA generic-tier (`fdc_foundation` + `fdc_sr_legacy`) and
+carries **zero barcodes** — so in practice a scan either falls to a keyed web lookup or lands on
+a screen that says so and offers text search and manual entry. See
+[`THIRD-PARTY-DATA.md`](THIRD-PARTY-DATA.md).
 
 ## What we deliberately do not clone
 
@@ -132,9 +162,11 @@ npm run data:build
 cd apps/mobile && npx expo run:android --variant release   # phone plugged in, USB debugging on
 ```
 
-Photo scans use your own AI key (Anthropic, OpenAI, or Google), added during onboarding or later in
-Profile — typically well under a cent per scan, and the app works without one for barcode, label,
-search and manual logging.
+Photo scans, nutrition-label reads and receipt reads use your own AI key (Anthropic, OpenAI, or
+Google), added during onboarding or later in Profile — typically well under a cent per scan. The
+app works without one for text search, manual entry, saved-meal relog and the correction flow;
+barcode is local-first but the bundled corpus has no barcodes, so a scan either falls to a keyed
+web lookup or hands off to search and manual entry — see "How you run it" above.
 
 ## Your data stays yours
 

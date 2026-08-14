@@ -2,6 +2,7 @@ import { router } from 'expo-router'
 import { useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -20,7 +21,9 @@ import { healthScore } from '@nutai/totals'
 import { ConfidenceChip, ConfidenceReasons } from '../src/components/ConfidenceChip'
 import { Icon, type IconName } from '../src/components/Icon'
 import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
-import { logMeal } from '../src/data/repo'
+import { db, logMeal } from '../src/data/repo'
+import { syncLoggedMeal } from '../src/health/meal-sync'
+import { saveMeal } from '../src/data/saved-meals'
 import { fixScan, lookupOther, retryScan } from '../src/scan/orchestrator'
 import {
   answerQuestion,
@@ -53,6 +56,7 @@ export default function Result() {
   const phase = useScan()
   const [expandedBand, setExpandedBand] = useState(false)
   const [logging, setLogging] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [fixOpen, setFixOpen] = useState(false)
   const [fixText, setFixText] = useState('')
 
@@ -97,6 +101,26 @@ export default function Result() {
             <Text style={[type.bodyStrong, { color: theme.bg }]}>Try again</Text>
           </Pressable>
         ) : null}
+        {phase.failureKind === 'no-key' || !phase.canRetry ? (
+          <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.lg }}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => { reset(); router.replace('/food-search') }}
+              style={[styles.secondary, { borderColor: theme.border }]}
+            >
+              <Icon name="search" size={16} color={theme.text} />
+              <Text style={[type.bodyStrong, { color: theme.text }]}>Search</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => { reset(); router.replace('/manual-entry') }}
+              style={[styles.secondary, { borderColor: theme.border }]}
+            >
+              <Icon name="pencil" size={16} color={theme.text} />
+              <Text style={[type.bodyStrong, { color: theme.text }]}>Enter by hand</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <Pressable
           onPress={() => { reset(); router.back() }}
           hitSlop={space.md}
@@ -122,6 +146,26 @@ export default function Result() {
   const { result } = phase
   const highlighted = result.questions.filter((q) => q.state === 'highlighted')
   const preAnswered = result.questions.filter((q) => q.state === 'pre_answered')
+
+  /**
+   * Save, so relogging this meal later costs nothing.
+   *
+   * Deliberately separate from `Log it`: saving a template and eating a meal are
+   * different acts, and conflating them is how a "saved" list fills with every
+   * one-off a user ever scanned.
+   */
+  function saveThisMeal() {
+    if (saved) return
+    const name = result.items[0]?.row.displayName ?? 'Saved meal'
+    void (async () => {
+      try {
+        await saveMeal(await db(), name, result.meal.ingredients, Date.now())
+        setSaved(true)
+      } catch {
+        Alert.alert('Could not save', 'Nothing was written. Try again.')
+      }
+    })()
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -262,6 +306,17 @@ export default function Result() {
         <View style={{ flexDirection: 'row', gap: space.md }}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={saved ? 'Saved' : 'Save this meal'}
+            disabled={saved}
+            onPress={saveThisMeal}
+            style={[styles.secondary, { borderColor: theme.border }, saved && { opacity: 0.5 }]}
+          >
+            <Icon name="bookmark" size={16} color={theme.text} />
+            <Text style={[type.bodyStrong, { color: theme.text }]}>{saved ? 'Saved' : 'Save'}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             onPress={() => setFixOpen(true)}
             style={[styles.secondary, { borderColor: theme.border }]}
           >
@@ -277,9 +332,15 @@ export default function Result() {
               setLogging(true)
               void (async () => {
                 try {
-                  await logMeal(result, phase.meta, phase.photoUri, Date.now())
+                  const now = Date.now()
+                  const mealId = await logMeal(result, phase.meta, phase.photoUri, now)
                   reset()
                   router.dismissAll()
+                  // Fire-and-forget, and started only after the meal is already
+                  // committed and the screen is gone: a HealthKit hang or throw
+                  // must never delay or break logging. syncLoggedMeal never
+                  // rejects, but `.catch` guards against a future regression.
+                  void syncLoggedMeal(result, mealId, now).catch(() => {})
                 } catch {
                   setLogging(false)
                 }
@@ -582,6 +643,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     minHeight: MIN_TAP_TARGET,
+    flexShrink: 1,
   },
   fixOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: space.lg },
   fixInput: {

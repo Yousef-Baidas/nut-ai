@@ -1,12 +1,15 @@
 import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DbAdapter } from '@nutai/db-adapter'
 import { resolveByText, type ScoredCandidate } from '@nutai/resolver'
+import { PortionSheet } from '../src/components/PortionSheet'
 import { nutritionCorpusInfo, openNutritionDb } from '../src/db/expo-adapter'
+import { DEFAULT_PORTION_GRAMS, portionOptionsFor, type PortionOption } from '../src/db/portion-options'
+import { startSearchLog } from '../src/scan/orchestrator'
 import { useTheme } from '../src/theme/ThemeProvider'
-import { radius, space, type } from '../src/theme/tokens'
+import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 
 /**
  * Foods — the library that replaces the incumbent's `Groups` social feed.
@@ -27,6 +30,7 @@ export default function FoodSearch() {
   const [results, setResults] = useState<ScoredCandidate[]>([])
   const [outcome, setOutcome] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<{ candidate: ScoredCandidate; options: PortionOption[] } | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -76,6 +80,37 @@ export default function FoodSearch() {
     return `${corpus.foods.toLocaleString()} foods · ${corpus.portions.toLocaleString()} portion weights · USDA, CC0`
   }, [corpus])
 
+  /**
+   * Tapping a result is the whole point of this screen.
+   *
+   * It used to render plain Views: a search that could resolve a food perfectly
+   * and then do nothing with it. The portion sheet is the only question left —
+   * the corpus already knows the nutrition, it does not know how much you ate.
+   */
+  function openPortionSheet(candidate: ScoredCandidate) {
+    if (!db) return
+    void (async () => {
+      const options = await portionOptionsFor(db, candidate.foodId)
+      setPending({ candidate, options })
+    })()
+  }
+
+  function confirmPortion(grams: number) {
+    const candidate = pending?.candidate
+    setPending(null)
+    if (!candidate) return
+    void (async () => {
+      const ok = await startSearchLog(candidate.foodId, grams)
+      // The review screen is a modal on the root stack; this screen is too, so
+      // replace rather than push and there is no dead screen underneath.
+      if (ok) {
+        router.replace('/result')
+      } else {
+        Alert.alert('Could not log this food', 'It is no longer available, or its data could not be read. Nothing was logged.')
+      }
+    })()
+  }
+
   return (
     <ScrollView
       style={{ backgroundColor: theme.bg }}
@@ -109,25 +144,63 @@ export default function FoodSearch() {
         <Text style={[type.micro, { color: theme.textFaint, marginTop: space.md }]}>{outcome.toUpperCase()}</Text>
       )}
 
-      {results.map((r) => (
-        <View key={r.foodId} style={[styles.row, { borderColor: theme.border }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[type.body, { color: theme.text }]} numberOfLines={2}>{r.name}</Text>
-            <Text style={[type.caption, { color: theme.textMuted, marginTop: 2 }]}>
-              {r.energyKcal != null ? `${Math.round(r.energyKcal)} kcal / 100 g` : 'energy not reported'}
-              {r.brand ? ` · ${r.brand}` : ''}
-            </Text>
-          </View>
-          <Text style={[type.micro, { color: theme.textFaint }]}>{r.score.toFixed(2)}</Text>
-        </View>
-      ))}
+      {results.map((r) => {
+        // A row without energy has nothing to scale a portion against — startSearchLog
+        // would happily log a phantom 0-kcal row. Stay visible, but not tappable.
+        const loggable = r.energyKcal != null
+        return (
+          <Pressable
+            key={r.foodId}
+            accessibilityRole="button"
+            accessibilityLabel={loggable ? `Log ${r.name}` : `${r.name}, energy not reported, cannot be logged`}
+            accessibilityState={{ disabled: !loggable }}
+            disabled={!loggable}
+            onPress={loggable ? () => openPortionSheet(r) : undefined}
+            style={[styles.row, { borderColor: theme.border }, !loggable && { opacity: 0.5 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[type.body, { color: theme.text }]} numberOfLines={2}>{r.name}</Text>
+              <Text style={[type.caption, { color: theme.textMuted, marginTop: 2 }]}>
+                {loggable ? `${Math.round(r.energyKcal!)} kcal / 100 g` : 'energy not reported — cannot be logged'}
+                {r.brand ? ` · ${r.brand}` : ''}
+              </Text>
+            </View>
+            <Text style={[type.micro, { color: theme.textFaint }]}>{r.score.toFixed(2)}</Text>
+          </Pressable>
+        )
+      })}
 
       {query.trim().length >= 2 && !busy && results.length === 0 && (
-        <Text style={[type.caption, { color: theme.textMuted, marginTop: space.lg }]}>
-          Nothing matched. That is not a failure — it logs as an AI estimate with an amber badge,
-          and you can save it as your own food so it resolves instantly next time.
-        </Text>
+        <View style={{ marginTop: space.lg }}>
+          <Text style={[type.caption, { color: theme.textMuted, lineHeight: 19 }]}>
+            Nothing in the corpus matched “{query.trim()}”. That is not a dead end — enter the
+            numbers off the packet and log it by hand.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/manual-entry', params: { name: query.trim() } } as never)}
+            style={[styles.manualButton, { borderColor: theme.border }]}
+          >
+            <Text style={[type.bodyStrong, { color: theme.text }]}>Enter it by hand</Text>
+          </Pressable>
+        </View>
       )}
+
+      {pending ? (
+        <PortionSheet
+          title={pending.candidate.name}
+          subtitle={
+            pending.candidate.energyKcal != null
+              ? `${Math.round(pending.candidate.energyKcal)} kcal / 100 g · USDA`
+              : 'Energy not reported for this food'
+          }
+          options={pending.options}
+          initialGrams={pending.options[0]?.grams ?? DEFAULT_PORTION_GRAMS}
+          confirmLabel="Add to review"
+          onCancel={() => setPending(null)}
+          onConfirm={confirmPortion}
+        />
+      ) : null}
     </ScrollView>
   )
 }
@@ -148,5 +221,16 @@ const styles = StyleSheet.create({
     gap: space.md,
     paddingVertical: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  manualButton: {
+    marginTop: space.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: MIN_TAP_TARGET,
+    alignSelf: 'flex-start',
   },
 })

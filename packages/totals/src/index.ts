@@ -145,12 +145,20 @@ export interface DisplayTotals {
  * displayed-macros x 4/4/9 is its own distinct failure - separate from the edit
  * bug - and this rule kills it even when nothing was ever edited.
  *
- * Worked example from the spec: three items summing to 480.9 kcal / 52.69 P /
- * 6.19 F / 50.0 C. Macros display as 53 / 6 / 50, so calories display as
- * round(4*53 + 4*50 + 9*6) = 466. We STORE and EXPORT 480.9; we SHOW 466, and 466
- * is exactly reproducible from the visible macros. Every nutrition label makes
- * this same trade. Internal consistency is the property a user can actually check;
- * exact agreement with an unrounded truth they cannot see is not.
+ * THE RULE THIS MODULE IMPLEMENTS: macro grams round via `roundDisplayGrams` -
+ * one decimal place below 10 g, whole grams at 10 g and above - and calories
+ * are `round(4*P + 4*C + 9*F)` over those already-rounded figures. Worked:
+ * three items summing to 480.9 kcal / 52.69 P / 6.19 F / 50.0 C display as
+ * 53 / 6.2 / 50 and round(4*53 + 4*50 + 9*6.2) = round(467.8) = 468 kcal. We
+ * STORE and EXPORT 480.9; we SHOW 468, and 468 is exactly reproducible from
+ * the visible macros.
+ *
+ * REJECTED, and recorded here only so nobody re-derives it: the inherited
+ * spec's worked example rounds 6.19 g fat to a whole 6 g and lands on 466 kcal.
+ * That branch was not taken - whole-gram fat throws away information that
+ * matters against a ~60 g daily target. The contradiction is preserved
+ * unrepaired in `docs/inherited-design.md` I §6.3; `totals.test.ts` pins the
+ * accepted rule.
  */
 export function toDisplayTotals(t: MacroTotals): DisplayTotals {
   const protein_g = roundDisplayGrams(t.protein_g)
