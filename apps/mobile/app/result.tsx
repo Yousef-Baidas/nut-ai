@@ -334,12 +334,13 @@ export default function Result() {
                 try {
                   const now = Date.now()
                   const mealId = await logMeal(result, phase.meta, phase.photoUri, now)
-                  // Fire-and-forget and deliberately un-awaited in spirit: the
-                  // meal is already in SQLite, and Health must never be able to
-                  // hold up or fail a log. syncLoggedMeal swallows everything.
-                  await syncLoggedMeal(result, mealId, now)
                   reset()
                   router.dismissAll()
+                  // Fire-and-forget, and started only after the meal is already
+                  // committed and the screen is gone: a HealthKit hang or throw
+                  // must never delay or break logging. syncLoggedMeal never
+                  // rejects, but `.catch` guards against a future regression.
+                  void syncLoggedMeal(result, mealId, now).catch(() => {})
                 } catch {
                   setLogging(false)
                 }

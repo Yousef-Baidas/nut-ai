@@ -69,8 +69,8 @@ export async function syncLoggedMeal(
   mealId: number,
   now: number,
 ): Promise<boolean> {
-  if (!(await healthSyncEnabled())) return false
   try {
+    if (!(await healthSyncEnabled())) return false
     return await writeMeal({
       id: String(mealId),
       loggedAt: now,
