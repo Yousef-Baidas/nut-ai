@@ -63,5 +63,12 @@ export function validateManualEntry(form: ManualEntryForm): ManualEntryValidatio
     return { ok: false, error: 'Numbers cannot be negative.' }
   }
 
+  // A present-but-zero weight is a user mistake worth surfacing, not a silent
+  // fallback to 100 g: it would scale every macro to zero and the review
+  // screen could never recover from it by editing grams.
+  if (grams === 0) {
+    return { ok: false, error: 'Grams cannot be zero — leave it blank to default to 100 g.' }
+  }
+
   return { ok: true, value: { name, grams, kcal, protein_g: protein, carbs_g: carbs, fat_g: fat } }
 }

@@ -1,6 +1,6 @@
 import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DbAdapter } from '@nutai/db-adapter'
 import { resolveByText, type ScoredCandidate } from '@nutai/resolver'
@@ -103,7 +103,11 @@ export default function FoodSearch() {
       const ok = await startSearchLog(candidate.foodId, grams)
       // The review screen is a modal on the root stack; this screen is too, so
       // replace rather than push and there is no dead screen underneath.
-      if (ok) router.replace('/result')
+      if (ok) {
+        router.replace('/result')
+      } else {
+        Alert.alert('Could not log this food', 'It is no longer available, or its data could not be read. Nothing was logged.')
+      }
     })()
   }
 

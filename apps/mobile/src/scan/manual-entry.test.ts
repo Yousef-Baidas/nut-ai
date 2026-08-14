@@ -82,6 +82,22 @@ describe('validateManualEntry', () => {
     })
   })
 
+  it('rejects zero grams instead of logging an all-zero snapshot', () => {
+    expect(validateManualEntry({ ...BLANK, name: 'Toast', kcal: '100', grams: '0' })).toEqual({
+      ok: false,
+      error: 'Grams cannot be zero — leave it blank to default to 100 g.',
+    })
+    expect(validateManualEntry({ ...BLANK, name: 'Toast', kcal: '100', grams: '0.0' })).toEqual({
+      ok: false,
+      error: 'Grams cannot be zero — leave it blank to default to 100 g.',
+    })
+  })
+
+  it('still defaults grams to 100 when the field is left blank', () => {
+    const r = validateManualEntry({ ...BLANK, name: 'Toast', kcal: '100' })
+    expect(r.ok && r.value.grams).toBe(100)
+  })
+
   it('trims the name', () => {
     const r = validateManualEntry({ ...BLANK, name: '  Porridge  ', kcal: '150' })
     expect(r.ok && r.value.name).toBe('Porridge')
