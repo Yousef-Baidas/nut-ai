@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { PortionSheet } from '../src/components/PortionSheet'
@@ -42,8 +42,14 @@ export default function SavedFoods() {
     useCallback(() => {
       let alive = true
       void (async () => {
-        const rows = await reload()
-        if (alive) setMeals(rows)
+        try {
+          const rows = await reload()
+          if (alive) setMeals(rows)
+        } catch {
+          // Fail soft: an unreadable list is an empty list, never an unhandled
+          // rejection on a screen with no error UI of its own.
+          if (alive) setMeals([])
+        }
       })()
       return () => { alive = false }
     }, [reload]),
@@ -57,8 +63,12 @@ export default function SavedFoods() {
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            await deleteSavedMeal(await db(), meal.id)
-            setMeals(await reload())
+            try {
+              await deleteSavedMeal(await db(), meal.id)
+              setMeals(await reload())
+            } catch {
+              Alert.alert('Could not delete', 'Nothing was removed. Try again.')
+            }
           })()
         },
       },
@@ -76,14 +86,28 @@ export default function SavedFoods() {
       return
     }
     void (async () => {
-      await touchSavedMeal(await db(), meal.id, Date.now())
-      startSavedMealLog(rows, grams / total)
-      router.replace('/result')
+      try {
+        await touchSavedMeal(await db(), meal.id, Date.now())
+        startSavedMealLog(rows, grams / total)
+        router.replace('/result')
+      } catch {
+        Alert.alert('Could not log this meal', 'Nothing was logged. Try again.')
+      }
     })()
   }
 
   const pendingRows = pending ? parseSavedItems(pending.items_json) : []
   const pendingTotal = pendingRows.reduce((a, r) => a + r.grams, 0)
+
+  // The sheet only mounts when `pendingTotal > 0`, so a corrupt or 0-gram
+  // saved meal would otherwise leave `pending` set with nothing rendered —
+  // a tap that looks dead. Surface it and clear `pending` instead.
+  useEffect(() => {
+    if (pending && pendingTotal <= 0) {
+      Alert.alert('Could not read this saved meal', 'Its ingredients could not be restored.')
+      setPending(null)
+    }
+  }, [pending, pendingTotal])
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, paddingTop: insets.top + space.lg }}>

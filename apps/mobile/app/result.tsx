@@ -642,6 +642,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     minHeight: MIN_TAP_TARGET,
+    flexShrink: 1,
   },
   fixOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: space.lg },
   fixInput: {
