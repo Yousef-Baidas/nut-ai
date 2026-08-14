@@ -97,6 +97,26 @@ export default function Result() {
             <Text style={[type.bodyStrong, { color: theme.bg }]}>Try again</Text>
           </Pressable>
         ) : null}
+        {phase.failureKind === 'no-key' || !phase.canRetry ? (
+          <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.lg }}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => { reset(); router.replace('/food-search') }}
+              style={[styles.secondary, { borderColor: theme.border }]}
+            >
+              <Icon name="search" size={16} color={theme.text} />
+              <Text style={[type.bodyStrong, { color: theme.text }]}>Search</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => { reset(); router.replace('/manual-entry') }}
+              style={[styles.secondary, { borderColor: theme.border }]}
+            >
+              <Icon name="pencil" size={16} color={theme.text} />
+              <Text style={[type.bodyStrong, { color: theme.text }]}>Enter by hand</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <Pressable
           onPress={() => { reset(); router.back() }}
           hitSlop={space.md}
