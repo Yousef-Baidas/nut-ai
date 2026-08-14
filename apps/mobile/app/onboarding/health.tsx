@@ -1,7 +1,7 @@
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import { availability, requestPermissions, type HealthAvailability } from '../../src/health/healthkit'
+import { availability, type HealthAvailability } from '../../src/health/healthkit'
 import { OnboardingScreen } from '../../src/components/onboarding/Chrome'
 import { nextRoute, stepIndex, TOTAL_STEPS } from '../../src/onboarding/flow'
 import { setAnswer } from '../../src/onboarding/store'
@@ -45,27 +45,22 @@ export default function HealthScreen() {
   async function connect() {
     if (busy) return
 
-    if (avail !== 'available') {
-      setAnswer('healthConnected', false)
-      go()
-      return
-    }
+    /*
+      NO PERMISSION SHEET HERE.
 
+      #5: this screen used to present the HealthKit sheet during onboarding, and
+      nothing in the app then read or wrote a single sample. Asking for medical
+      data access to power nothing is the one thing a health app cannot afford
+      to do. The ask now lives on the Profile toggle that actually turns the
+      write on, at the moment the user asks for it.
+    */
     setBusy(true)
-    const res = await requestPermissions()
+    setAnswer('healthConnected', avail === 'available')
     setBusy(false)
-
-    setAnswer('healthConnected', res.prompted)
-
-    if (res.error) {
-      setOutcome(res.error)
-      return
-    }
-    // Deliberately not "Connected!". See the note above about read status.
     setOutcome(
-      res.canWrite
-        ? 'Health is set up. Meals you log will be written to the Health app.'
-        : 'Health sheet completed. Whatever you allowed there is what we can use — iOS does not tell apps which reads were granted.',
+      avail === 'available'
+        ? 'You can switch on “Sync meals to Apple Health” in Profile whenever you want. We will ask Health for permission then, not now.'
+        : 'Apple Health is not available on this device. Nothing here depends on it.',
     )
   }
 

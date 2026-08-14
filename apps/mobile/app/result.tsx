@@ -22,6 +22,7 @@ import { ConfidenceChip, ConfidenceReasons } from '../src/components/ConfidenceC
 import { Icon, type IconName } from '../src/components/Icon'
 import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
 import { db, logMeal } from '../src/data/repo'
+import { syncLoggedMeal } from '../src/health/meal-sync'
 import { saveMeal } from '../src/data/saved-meals'
 import { fixScan, lookupOther, retryScan } from '../src/scan/orchestrator'
 import {
@@ -331,7 +332,12 @@ export default function Result() {
               setLogging(true)
               void (async () => {
                 try {
-                  await logMeal(result, phase.meta, phase.photoUri, Date.now())
+                  const now = Date.now()
+                  const mealId = await logMeal(result, phase.meta, phase.photoUri, now)
+                  // Fire-and-forget and deliberately un-awaited in spirit: the
+                  // meal is already in SQLite, and Health must never be able to
+                  // hold up or fail a log. syncLoggedMeal swallows everything.
+                  await syncLoggedMeal(result, mealId, now)
                   reset()
                   router.dismissAll()
                 } catch {
