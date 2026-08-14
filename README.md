@@ -26,15 +26,18 @@ and instantly. No subscription, no paywall, no account, no server.
   a result at a portion you pick; type a food's name and numbers yourself; or save any corrected
   meal and relog it later at the same size or scaled, with zero questions asked. All three, and the
   entire correction flow, work with no AI key and no network at all.
-- **Web lookup for branded and restaurant food**: when the local database misses — or a logo in
-  frame names a brand — one search against the provider's own tool transcribes the published
-  nutrition facts, source URL attached. Menu ambiguity comes back as options that each carry their
-  own macros, so answering "which sandwich?" is instant and free.
-- **Fix Result**: describe what's wrong in a sentence; only what you mention changes.
+- **Web lookup for branded and restaurant food** (needs your key): when the local database misses —
+  or a logo in frame names a brand — one search against the provider's own tool transcribes the
+  published nutrition facts, source URL attached. Menu ambiguity comes back as options that each
+  carry their own macros, so answering "which sandwich?" is instant and free.
+- **Fix Result** (needs your key): describe what's wrong in a sentence; only what you mention
+  changes. A fix re-runs the vision analysis on the original photo, so it needs the same key the
+  scan itself did.
 - **A health score with a published formula** — fixed arithmetic over what you logged, reasons shown
   on tap, never an "AI" number.
-- **Exercise logging** where Run and Weight lifting use MET × your body weight × minutes (no model),
-  Describe is the one AI-estimated path and says so, and Manual is your number verbatim.
+- **Exercise logging** where Run and Weight lifting use MET × your body weight × minutes (no model,
+  no key), Describe is the one AI-estimated path and needs your key — it says so, and falls back to
+  Run, Weight lifting or Manual if you don't have one — and Manual is your number verbatim.
 - **Adaptive targets** that re-derive from your weigh-in trend, with hand-set targets always
   respected.
 - **Export / import**: one JSON file with everything; restore it from the first onboarding screen on
@@ -86,9 +89,14 @@ a food by name and numbers, relogging anything you saved, and the entire correct
 every gram edit, row removal and portion change recomputes locally from per-100 g snapshots,
 offline, instantly.
 
-**What needs your key:** photo scanning, nutrition-label reading and receipt reading. All three
-are provider vision calls; there is no on-device OCR in this build, and the label scanner fails
-fast and says so rather than pretending otherwise.
+**What needs your key:** photo scanning, nutrition-label reading, receipt reading, **Fix Result**
+(a correction re-runs the same vision analysis on the original photo, so it needs whatever key
+the original scan needed), **the Describe exercise path** (the only one of the three exercise
+loggers that estimates rather than computes), and **the branded-food web lookup** (used both when
+a barcode misses locally and when you name a brand or restaurant item directly). Photo scanning,
+label reading and receipt reading are provider vision calls; there is no on-device OCR in this
+build, and the label scanner fails fast and says so rather than pretending otherwise. Fix Result,
+Describe and the web lookup are provider text calls.
 
 **Barcode is a special case worth stating plainly.** The lookup is local-first and costs nothing
 on a hit, but the shipped corpus is USDA generic-tier (`fdc_foundation` + `fdc_sr_legacy`) and
