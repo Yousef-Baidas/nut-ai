@@ -26,6 +26,8 @@ import { createGunzip } from 'node:zlib'
 import Database from 'better-sqlite3'
 import { normalizeSearchText } from '@nutai/resolver'
 import { isNutritionallySane, offFoodToRow, parseOffLine } from './off.mjs'
+import { ingestBranded } from './branded.mjs'
+import { ingestArab } from './arab.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '../../..')
@@ -237,6 +239,24 @@ async function main() {
     onProgress: (p) => console.log(`  off: line ${p.line}, ${p.inserted} kept, ${p.rejected} rejected`),
   })
   console.log(`  off: ${stats.inserted} kept, ${stats.rejected} rejected, ${stats.skipped} skipped`)
+
+  const brandedDir = process.env.FDC_BRANDED_DIR ?? join(homedir(), 'nut-ai-data/fdc')
+  let branded = { read: 0, inserted: 0, rejected: 0, dedupedToOff: 0 }
+  try {
+    await stat(join(brandedDir, 'branded/branded_food.csv'))
+    branded = await ingestBranded({ db, dir: brandedDir, insertFood })
+    console.log(`  fdc_branded: ${branded.inserted} kept, ${branded.dedupedToOff} lost the GTIN to an OFF row`)
+  } catch {
+    console.log('  fdc_branded: skipped (set FDC_BRANDED_DIR to the unpacked USDA branded release)')
+  }
+
+  const arab = await ingestArab({ db, csvPath: join(REPO, 'tools/nutrition-data/arab-foods.csv'), insertFood })
+  console.log(`  arab_curated: ${arab.inserted} rows, all cited`)
+
+  writeCheckpoint(db, 'tiers', 'off,fdc_branded,arab_curated')
+  writeCheckpoint(db, 'licenses', 'ODbL-1.0 (Open Food Facts) | CC0-1.0 (USDA FDC) | curated-cited (arab_curated)')
+  writeCheckpoint(db, 'dedup_rule', 'same GTIN: the off row wins over fdc_branded')
+  writeCheckpoint(db, 'schema_version', '1')
   writeCheckpoint(db, 'built_at', new Date().toISOString())
   db.close()
 }

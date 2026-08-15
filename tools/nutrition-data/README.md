@@ -24,3 +24,48 @@ records that feed the gram engine directly).
 **Do not bundle**, verified restricted: China CFCT (all rights reserved),
 India IFCT (restricted), Netherlands NEVO ("unchanged form" only),
 Italy CREA, EuroFIR (paid membership).
+
+## Full build (PC only)
+
+`tools/nutrition-data/src/build-full.mjs` builds a full corpus — three tiers,
+merged into one SQLite file — as a manual, PC-only step. It is never run on
+the phone and its output is never an app asset; it exists to *produce* the
+app asset (`nutrition.db`) on a machine that can hold gigabytes of scratch
+data.
+
+Three downloads/inputs, ingested in this order (order matters — see dedup below):
+
+1. **Open Food Facts** — the full JSONL export, ~9 GB gzipped:
+   ```
+   curl -C - -o ~/nut-ai-data/openfoodfacts-products.jsonl.gz \
+     https://static.openfoodfacts.org/data/openfoodfacts-products.jsonl.gz
+   ```
+2. **USDA FoodData Central — Branded Foods** CSV release, unzipped to
+   `$FDC_BRANDED_DIR/branded/` (defaults to `~/nut-ai-data/fdc`), containing
+   `branded_food.csv`, `food.csv` and `food_nutrient.csv`.
+3. **`arab-foods.csv`** — checked into this repo, not downloaded. Every row
+   cites a real published food-composition table (currently Pellett &
+   Shadarevian's *Food Composition Tables for Use in the Middle East* and
+   USDA SR Legacy). **Growing this tier is content work, not code work** —
+   add cited lines to the CSV and rebuild; no code change is needed to go
+   from 20 rows to 300.
+
+| Tier | Source | License | Barcode dedup |
+|---|---|---|---|
+| `off` | Open Food Facts | ODbL-1.0 | ingested first — always wins a shared GTIN |
+| `fdc_branded` | USDA FDC Branded Foods | CC0-1.0 | ingested second — loses a shared GTIN to `off` |
+| `arab_curated` | `arab-foods.csv`, cited per row | curated-cited | no barcode, never collides |
+
+**Dedup rule:** the unique index on `foods(barcode)` plus `INSERT OR IGNORE`
+does the work — whichever tier is ingested first for a given GTIN owns that
+row. Since `off` is ingested before `fdc_branded`, **OFF wins** on any shared
+GTIN. The build records this rule into `build_manifest` (`dedup_rule`) rather
+than only implying it in code.
+
+Run the build with:
+```
+node tools/nutrition-data/src/build-full.mjs
+```
+Output lands at `~/nut-ai-data/nutrition-full.db` (override with `OUT`). The
+OFF ingest is resumable (checkpointed every 5000 lines); `fdc_branded` is
+skipped with a log line, not an error, when `FDC_BRANDED_DIR` isn't set.

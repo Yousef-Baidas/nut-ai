@@ -15,7 +15,13 @@
 /** Arabic block, incl. Arabic Supplement and Presentation Forms-A/B. */
 export const ARABIC_RE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/
 
-/** Tashkeel (harakat), superscript alef, and the tatweel elongation mark. */
+/**
+ * Tashkeel (harakat), superscript alef, and the tatweel elongation mark.
+ *
+ * This range overlaps the Arabic-Indic digits (U+0660-0669); correctness
+ * depends on `digits()` running first so those code points are already
+ * converted to ASCII before this regex ever sees them.
+ */
 const TASHKEEL_RE = /[ً-ٰٟـ]/g
 
 const ARABIC_INDIC_ZERO = 0x0660
