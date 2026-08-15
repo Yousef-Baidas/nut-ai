@@ -1,8 +1,12 @@
 import { ExerciseEstimateZ } from '@nutai/core-schema'
 import { cheapestModel, type ProviderId } from '@nutai/prompt'
-import { db, localDate, setting, weightHistory } from '../data/repo'
+import { setting } from '../data/repo'
 import { loadCredential } from '../inference/credentials'
 import { runExerciseEstimate } from '../inference/pathA/client'
+import { latestWeightKg, saveEntry } from './entries'
+
+/** Either a saved entry, or a user-facing reason it wasn't. */
+export type DescribeOutcome = { ok: true } | { ok: false; message: string }
 
 /**
  * Describe-exercise — the model-owned path, guarded against the stuck-spinner
@@ -16,23 +20,6 @@ import { runExerciseEstimate } from '../inference/pathA/client'
  * owns the whole chain and always resolves to an outcome, never throws, so the
  * screen only has to flip `busy` back to false and show a message.
  */
-export type DescribeOutcome = { ok: true } | { ok: false; message: string }
-
-async function latestWeightKg(): Promise<number> {
-  const points = await weightHistory()
-  return points[points.length - 1]?.weightKg ?? 80
-}
-
-async function saveEntry(name: string, kcal: number): Promise<void> {
-  const now = Date.now()
-  const h = await db()
-  await h.run(
-    `INSERT INTO exercise_entries (local_date, name, kcal, provenance, external_id, logged_at)
-     VALUES (?,?,?,'manual',NULL,?)`,
-    [localDate(now), name, kcal, now],
-  )
-}
-
 export async function describeExercise(desc: string): Promise<DescribeOutcome> {
   try {
     const provider = (await setting('provider')) as ProviderId | 'none' | ''
