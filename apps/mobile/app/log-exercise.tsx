@@ -10,19 +10,16 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ExerciseEstimateZ } from '@nutai/core-schema'
-import { cheapestModel, type ProviderId } from '@nutai/prompt'
 import { Icon, type IconName } from '../src/components/Icon'
 import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
-import { db, localDate, setting, weightHistory } from '../src/data/repo'
+import { db, localDate, weightHistory } from '../src/data/repo'
+import { describeExercise } from '../src/exercise/describe'
 import {
   exerciseKcal,
   INTENSITY_ANCHORS,
   type ExerciseKind,
   type Intensity,
 } from '../src/exercise/met'
-import { loadCredential } from '../src/inference/credentials'
-import { runExerciseEstimate } from '../src/inference/pathA/client'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 
@@ -286,27 +283,16 @@ function DescribeScreen({ onBack }: { onBack: () => void }) {
     setBusy(true)
     setError(null)
 
-    const provider = (await setting('provider')) as ProviderId | 'none' | ''
-    const credential = provider && provider !== 'none' ? await loadCredential(provider) : null
-    if (!credential || !provider || provider === 'none') {
-      setBusy(false)
-      setError('Describing a workout needs an API key — add one in Profile, or use Run, Weight lifting or Manual instead.')
+    // describeExercise owns the whole setting/credential/estimate/save chain
+    // and never throws — any rejection in that chain resolves to
+    // { ok: false, message }, so busy always gets cleared here instead of
+    // stranding the spinner on an unhandled rejection (issue #27's shape).
+    const outcome = await describeExercise(desc)
+    setBusy(false)
+    if (!outcome.ok) {
+      setError(outcome.message)
       return
     }
-
-    const model = (await setting('provider_model')) || cheapestModel(provider).id
-    const kg = await latestWeightKg()
-    const outcome = await runExerciseEstimate(provider, { model, description: desc, weightKg: kg }, credential)
-    const parsed = outcome.ok ? ExerciseEstimateZ.safeParse(outcome.raw) : null
-
-    if (!parsed?.success) {
-      setBusy(false)
-      setError(outcome.ok ? 'Could not turn that into an estimate — try adding a duration.' : (outcome.error?.message ?? 'The estimate failed.'))
-      return
-    }
-
-    const e = parsed.data
-    await saveEntry(e.duration_min ? `${e.label} — ${Math.round(e.duration_min)} min` : e.label, Math.round(e.calories_kcal))
     router.back()
   }
 
