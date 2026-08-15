@@ -160,13 +160,19 @@ export interface DisplayTotals {
  * unrepaired in `docs/inherited-design.md` I §6.3; `totals.test.ts` pins the
  * accepted rule.
  */
-/**
- * Meal-level kcal, basis aware per row (§6.2) and scaled by the whole-meal
- * portion multiplier last — same ordering as `recomputeTotals`.
- */
-export function mealCalories(meal: LoggedMeal): number {
-  const raw = meal.ingredients.reduce((sum, r) => sum + itemCalories(r), 0)
-  return raw * meal.portionEatenFraction
+export function toDisplayTotals(t: MacroTotals): DisplayTotals {
+  const protein_g = roundDisplayGrams(t.protein_g)
+  const fat_g = roundDisplayGrams(t.fat_g)
+  const carbs_g = roundDisplayGrams(t.carbs_g)
+  return {
+    kcal: Math.round(reconcileFromMacros(protein_g, carbs_g, fat_g)),
+    protein_g,
+    fat_g,
+    carbs_g,
+    fiber_g: roundDisplayGrams(t.fiber_g),
+    sugar_g: roundDisplayGrams(t.sugar_g),
+    sodium_mg: Math.round(t.sodium_mg),
+  }
 }
 
 /**
@@ -183,8 +189,10 @@ export function mealCalories(meal: LoggedMeal): number {
  * reproducible from the displayed macros") and `pipeline.corpus.test.ts`
  * ("keeps displayed calories reproducible from displayed macros across many
  * real foods") pin the Atwater-over-rounded-macros figure as the REQUIRED
- * display value for resolved database rows — that is a documented §6.3
- * mandate for this row class, so it is left as-is here.
+ * display value for resolved database rows. That's not a row-class-specific
+ * carve-out in §6.3 itself — §6.3 states a general Regime-B rule — it's the
+ * controller ruling that carves out only `manual_custom`, so `db_search` is
+ * left on the general rule here.
  */
 function showsTrustedKcal(row: IngredientRow): boolean {
   return row.origin === 'manual_custom' && calorieBasisFor(row) === 'database'
@@ -209,21 +217,6 @@ export function toDisplayTotalsForMeal(meal: LoggedMeal): DisplayTotals {
     remaining.length === 0 ? 0 : toDisplayTotals(recomputeTotals({ ...meal, ingredients: remaining })).kcal
 
   return { ...display, kcal: Math.round(trustedKcal) + remainingKcal }
-}
-
-export function toDisplayTotals(t: MacroTotals): DisplayTotals {
-  const protein_g = roundDisplayGrams(t.protein_g)
-  const fat_g = roundDisplayGrams(t.fat_g)
-  const carbs_g = roundDisplayGrams(t.carbs_g)
-  return {
-    kcal: Math.round(reconcileFromMacros(protein_g, carbs_g, fat_g)),
-    protein_g,
-    fat_g,
-    carbs_g,
-    fiber_g: roundDisplayGrams(t.fiber_g),
-    sugar_g: roundDisplayGrams(t.sugar_g),
-    sodium_mg: Math.round(t.sodium_mg),
-  }
 }
 
 /**

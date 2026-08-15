@@ -248,7 +248,10 @@ function IntensityScreen({ exercise, onBack }: { exercise: ExerciseKind; onBack:
           keyboardType="number-pad"
           inputAccessoryViewID={DONE_ACCESSORY_ID}
           value={minutes}
-          onChangeText={setMinutes}
+          onChangeText={(t) => {
+            setMinutes(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border }]}
         />
 
@@ -392,7 +395,10 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           placeholder="250"
           placeholderTextColor={theme.textFaint}
           value={kcal}
-          onChangeText={setKcal}
+          onChangeText={(t) => {
+            setKcal(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border, marginTop: space.sm }]}
         />
 
@@ -402,7 +408,10 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           placeholder="Workout"
           placeholderTextColor={theme.textFaint}
           value={name}
-          onChangeText={setName}
+          onChangeText={(t) => {
+            setName(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border, marginTop: space.sm, fontSize: 17, fontWeight: '400' }]}
         />
 
