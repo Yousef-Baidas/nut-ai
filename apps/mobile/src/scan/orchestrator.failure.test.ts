@@ -48,7 +48,7 @@ vi.mock('../inference/pathA/client', () => ({
   runWebLookup: async () => { throw new Error('should not be reached') },
 }))
 
-const { startScan, startLabelScan, startReceiptScan } = await import('./orchestrator')
+const { startScan, startBarcodeScan, startLabelScan, startReceiptScan } = await import('./orchestrator')
 const { getPhase, reset } = await import('./store')
 
 beforeEach(() => reset())
@@ -60,21 +60,47 @@ describe('a rejection after preprocess lands the failed phase, not a hang', () =
     const phase = getPhase()
     expect(phase.kind).toBe('failed')
     if (phase.kind !== 'failed') throw new Error('unreachable')
+    // Retry here means retryScan() re-running the SAME photo pipeline
+    // (analyze) that just failed — a legitimate retry, so canRetry stays true.
     expect(phase.canRetry).toBe(true)
     expect(phase.message.length).toBeGreaterThan(0)
   })
 
-  it('startLabelScan: the same throw resolves to a failed phase, not analyzing', async () => {
+  it('startBarcodeScan: a throw from the credential read resolves to a failed phase with no retry affordance', async () => {
+    // No corpus hit, so the function falls through to the web-lookup branch
+    // that reads the credential.
+    await startBarcodeScan('012345678905')
+
+    const phase = getPhase()
+    expect(phase.kind).toBe('failed')
+    if (phase.kind !== 'failed') throw new Error('unreachable')
+    // canRetry MUST be false: "Try again" always calls retryScan(), which
+    // re-runs the photo pipeline against lastCapture — a barcode scan never
+    // sets lastCapture, so a retry affordance here would no-op or misfire
+    // against an unrelated earlier photo.
+    expect(phase.canRetry).toBe(false)
+    expect(phase.message.length).toBeGreaterThan(0)
+  })
+
+  it('startLabelScan: the same throw resolves to a failed phase with no retry affordance', async () => {
     await startLabelScan('file:///label.jpg')
 
     const phase = getPhase()
     expect(phase.kind).toBe('failed')
+    if (phase.kind !== 'failed') throw new Error('unreachable')
+    // canRetry MUST be false: retryScan() would re-run the GENERIC photo
+    // pipeline, not another label read — the wrong pipeline for this photo.
+    expect(phase.canRetry).toBe(false)
+    expect(phase.message.length).toBeGreaterThan(0)
   })
 
-  it('startReceiptScan: the same throw resolves to a failed phase, not analyzing', async () => {
+  it('startReceiptScan: the same throw resolves to a failed phase with no retry affordance', async () => {
     await startReceiptScan('file:///receipt.jpg')
 
     const phase = getPhase()
     expect(phase.kind).toBe('failed')
+    if (phase.kind !== 'failed') throw new Error('unreachable')
+    expect(phase.canRetry).toBe(false)
+    expect(phase.message.length).toBeGreaterThan(0)
   })
 })

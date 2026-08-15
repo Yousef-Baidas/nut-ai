@@ -429,11 +429,17 @@ export async function startBarcodeScan(gtin: string): Promise<void> {
   try {
     await startBarcodeScanUnguarded(gtin)
   } catch {
+    // canRetry:false, deliberately, like every other failure branch in this
+    // function (below): "Try again" always calls retryScan(), which re-runs
+    // the PHOTO pipeline (analyze) against lastCapture — a barcode scan never
+    // sets lastCapture, so that would either no-op or, worse, re-present an
+    // unrelated earlier photo as this barcode's result. canRetry:false routes
+    // the screen to Search / Enter-by-hand instead.
     setPhase({
       kind: 'failed',
       photoUri: '',
       message: 'Something went wrong looking up this barcode. Try again.',
-      canRetry: true,
+      canRetry: false,
     })
   }
 }
@@ -571,11 +577,16 @@ export async function startLabelScan(photoUri: string): Promise<void> {
   try {
     await startLabelScanUnguarded(photoUri, base64)
   } catch {
+    // canRetry:false: "Try again" always calls retryScan(), which re-runs the
+    // GENERIC photo pipeline (analyze) against lastCapture, not another label
+    // read. Even though lastCapture does hold this same photo here, retrying
+    // would silently analyze it as a regular food photo and present that as
+    // the label result — the wrong pipeline, not just a wrong photo.
     setPhase({
       kind: 'failed',
       photoUri,
       message: 'Something went wrong reading this label. Try again.',
-      canRetry: true,
+      canRetry: false,
     })
   }
 }
@@ -687,11 +698,15 @@ export async function startReceiptScan(photoUri: string): Promise<void> {
   try {
     await startReceiptScanUnguarded(photoUri, base64)
   } catch {
+    // canRetry:false, same reasoning as the label catch above: retryScan()
+    // would re-run the generic photo pipeline against this receipt photo, not
+    // another receipt read — the wrong pipeline, presented as if it were a
+    // successful retry.
     setPhase({
       kind: 'failed',
       photoUri,
       message: 'Something went wrong reading this receipt. Try again.',
-      canRetry: true,
+      canRetry: false,
     })
   }
 }
