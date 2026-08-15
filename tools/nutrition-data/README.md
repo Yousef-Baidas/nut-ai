@@ -52,15 +52,23 @@ Three downloads/inputs, ingested in this order (order matters — see dedup belo
 
 | Tier | Source | License | Barcode dedup |
 |---|---|---|---|
-| `off` | Open Food Facts | ODbL-1.0 | ingested first — always wins a shared GTIN |
-| `fdc_branded` | USDA FDC Branded Foods | CC0-1.0 | ingested second — loses a shared GTIN to `off` |
+| `off` | Open Food Facts | ODbL-1.0 | always wins a shared GTIN |
+| `fdc_branded` | USDA FDC Branded Foods | CC0-1.0 | loses a shared GTIN to `off` |
 | `arab_curated` | `arab-foods.csv`, cited per row | curated-cited | no barcode, never collides |
 
-**Dedup rule:** the unique index on `foods(barcode)` plus `INSERT OR IGNORE`
-does the work — whichever tier is ingested first for a given GTIN owns that
-row. Since `off` is ingested before `fdc_branded`, **OFF wins** on any shared
-GTIN. The build records this rule into `build_manifest` (`dedup_rule`) rather
-than only implying it in code.
+**Dedup rule:** `off` always wins a shared GTIN over `fdc_branded` — by tier
+rank, not by ingestion order. `insertFood` (`build-full.mjs`) looks up the
+resident row for an incoming barcode and, when the incoming tier outranks it,
+replaces the resident row; otherwise the incoming row is dropped. This holds
+on a REBUILD too: even if `fdc_branded` already owns a GTIN in the resident
+database from an earlier run, a subsequent OFF ingest still takes it over.
+Ingesting `off` before `fdc_branded` (as this build does) is only an ordering
+convenience, not what makes OFF win.
+
+The build records this rule, plus final per-tier row counts and how many
+`fdc_branded` rows lost their GTIN to `off`, into `build_manifest`
+(`dedup_rule`, `counts.<tier>`, `dedup.branded_lost_to_off`) rather than only
+logging it to stdout.
 
 Run the build with:
 ```

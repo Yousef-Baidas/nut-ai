@@ -63,4 +63,29 @@ describe('ingestBranded', () => {
     expect(rows.length).toBe(1)
     expect(rows[0].tier).toBe('off')
   })
+
+  it('lets OFF win even on a REBUILD where fdc_branded already owns the GTIN', async () => {
+    // The dedup rule is "OFF wins", not "whoever gets there first wins" — those
+    // only coincide on a virgin database. A rebuild against a resident DB where
+    // fdc_branded already claimed a GTIN must still let a (re)ingested OFF row
+    // take it over, since fdc_branded rows are never authoritative over OFF.
+    const d = await db()
+
+    const brandedStats = await ingestBranded({ db: d, dir: brandedDir(), insertFood })
+    expect(brandedStats.inserted).toBe(2)
+    expect(d.prepare("SELECT tier FROM foods WHERE barcode = '6281006012011'").get().tier).toBe('fdc_branded')
+
+    const dir = mkdtempSync(join(tmpdir(), 'nutai-offgz2-'))
+    const gz = join(dir, 'off.jsonl.gz')
+    writeFileSync(gz, gzipSync(JSON.stringify({
+      code: '6281006012011', product_name: 'Almarai Fresh Laban', brands: 'Almarai',
+      nutriments: { 'energy-kcal_100g': 40, proteins_100g: 3.2, fat_100g: 1.5, carbohydrates_100g: 4.6 },
+    }) + '\n'))
+    await ingestOff({ db: d, jsonlGzPath: gz })
+
+    const rows = d.prepare("SELECT tier, source FROM foods WHERE barcode = '6281006012011'").all()
+    expect(rows.length).toBe(1)
+    expect(rows[0].tier).toBe('off')
+    expect(rows[0].source).toBe('off')
+  })
 })

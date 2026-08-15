@@ -1,13 +1,20 @@
 /**
  * The USDA branded tier — ~400k products, every one with a GTIN, public domain.
  *
- * Streams `branded_food.csv` and `food_nutrient.csv` rather than loading them:
- * the branded release is ~2 GB unpacked and the nutrient file alone is tens of
- * millions of rows.
+ * Each CSV is read off disk one line at a time via a readline stream — never
+ * slurped whole — because the branded release is ~2 GB unpacked and the
+ * nutrient file alone is tens of millions of rows. The per-food metadata and
+ * nutrient lookups this builds (`meta`, `nutrients`) DO accumulate in memory
+ * across the whole branded release, which is fine at USDA branded's size but
+ * is not the technique to reach for on something OFF-sized.
  *
- * DEDUP: OFF is ingested first and the unique index on foods(barcode) does the
- * rest — `INSERT OR IGNORE` silently loses, and we count those losses as
- * `dedupedToOff` so the manifest can state the rule rather than imply it.
+ * DEDUP: `insertFood` (build-full.mjs) resolves a shared GTIN by tier rank —
+ * `off` outranks `fdc_branded` regardless of which ingest runs first, so a
+ * rebuild against a resident database still gets OFF-wins. A `null` return
+ * here means one of two different things, which the stats below keep apart:
+ * the barcode was already owned by an equal-or-higher tier (`dedupedToOff`),
+ * or this exact fdc_id was already imported by a prior run of THIS ingest
+ * (`alreadyImported`) — the second is normal rebuild idempotency, not a loss.
  */
 
 import { createReadStream } from 'node:fs'
@@ -120,7 +127,7 @@ export async function ingestBranded({ db, dir, insertFood }) {
   })
 
   const now = Date.now()
-  const stats = { read: 0, inserted: 0, rejected: 0, dedupedToOff: 0 }
+  const stats = { read: 0, inserted: 0, rejected: 0, dedupedToOff: 0, alreadyImported: 0 }
   db.exec('BEGIN')
   try {
     for (const [fdcId, m] of meta) {
@@ -128,8 +135,16 @@ export async function ingestBranded({ db, dir, insertFood }) {
       if (m.description === '') { stats.rejected++; continue }
       const row = brandedRowFromCsv(m, nutrients.get(fdcId) ?? {})
       if (row == null) { stats.rejected++; continue }
+
+      // Recorded BEFORE the insert attempt, because insertFood may itself
+      // delete the resident row (when THIS row's tier would win) before it
+      // returns — by which point "was there already an owner" is unanswerable.
+      const hadBarcodeOwner =
+        row.barcode != null && db.prepare('SELECT 1 FROM foods WHERE barcode = ?').get(row.barcode) != null
+
       if (insertFood(db, row, now) != null) stats.inserted++
-      else stats.dedupedToOff++
+      else if (hadBarcodeOwner) stats.dedupedToOff++
+      else stats.alreadyImported++
     }
     db.exec('COMMIT')
   } catch (err) {

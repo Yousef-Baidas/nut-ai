@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ingestOff, loadSchema, openFullDb, readCheckpoint } from './build-full.mjs'
+import { ingestOff, insertFood, loadSchema, openFullDb, readCheckpoint, writeManifestSummary } from './build-full.mjs'
 
 const LINES = [
   { code: '6281006012011', product_name: 'Almarai Fresh Laban', brands: 'Almarai',
@@ -129,5 +129,27 @@ describe('ingestOff', () => {
       )
       .get('6281006012011')
     expect(row.brand).toBe('Almarai')
+  })
+})
+
+describe('writeManifestSummary', () => {
+  it('writes per-tier row counts and the branded-dedup count into build_manifest, not just stdout', async () => {
+    const { gz, db } = await fixture()
+    await ingestOff({ db, jsonlGzPath: gz }) // 2 off rows (see LINES fixture above)
+
+    const now = Date.now()
+    insertFood(db, {
+      source: 'arab_curated', sourceId: 'ful_medames', name: 'Ful medames', brand: null,
+      tier: 'arab_curated', license: 'curated-cited', barcode: null, category: 'legume',
+      kcal: 110, protein: 7.6, fat: 0.5, satFat: null, carb: 17.8, fiber: 5.4, sugar: 0.5,
+      sodiumMg: 320, servingSizeG: 250, servingDesc: '1 bowl', completeness: 1, synonyms: ['ful'],
+    }, now)
+
+    writeManifestSummary(db, { branded: { dedupedToOff: 3 } })
+
+    expect(Number(readCheckpoint(db, 'counts.off'))).toBe(2)
+    expect(Number(readCheckpoint(db, 'counts.arab_curated'))).toBe(1)
+    expect(readCheckpoint(db, 'counts.fdc_branded')).toBeNull() // none ingested in this fixture
+    expect(Number(readCheckpoint(db, 'dedup.branded_lost_to_off'))).toBe(3)
   })
 })

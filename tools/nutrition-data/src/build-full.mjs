@@ -79,6 +79,20 @@ export function writeCheckpoint(db, key, value) {
 }
 
 /**
+ * Write per-tier row counts and the branded/OFF dedup outcome into
+ * `build_manifest`, not just to stdout. `console.log` output does not survive
+ * the build process exiting, and the manifest is the one place a later
+ * inspection (golden-queries, a support investigation, this file's own tests)
+ * can read "how many of each tier actually landed" without re-deriving it from
+ * a live `COUNT(*) ... GROUP BY tier` query against a multi-gigabyte database.
+ */
+export function writeManifestSummary(db, { branded }) {
+  const tierCounts = db.prepare('SELECT tier, COUNT(*) AS c FROM foods GROUP BY tier').all()
+  for (const { tier, c } of tierCounts) writeCheckpoint(db, `counts.${tier ?? 'unknown'}`, c)
+  writeCheckpoint(db, 'dedup.branded_lost_to_off', branded.dedupedToOff)
+}
+
+/**
  * Look up (or create) the brand row and return its id, or null for an
  * unbranded product. `foods.brand_id` is the schema's real home for brand
  * (schema.ts:33,44) — writing it only into food_fts left every barcode hit
@@ -96,14 +110,69 @@ function resolveBrandId(db, brandName) {
 }
 
 /**
- * Insert one FoodRow. Returns the new rowid, or null when the row already
- * existed (same source+source_id) or lost the GTIN uniqueness race.
+ * Which tier owns a barcode when two tiers both carry the same GTIN. Higher
+ * wins. `off` outranks `fdc_branded` regardless of ingestion order — the spec's
+ * "OFF wins" rule is about the DATA, not about which ingest happened to run
+ * first against a resident database.
+ */
+const TIER_RANK = { off: 2, fdc_branded: 1, arab_curated: 0 }
+
+/**
+ * Remove every trace of a food row (FTS, trigram, synonyms, micros) ahead of
+ * replacing it. Deleting only `foods` and reinserting would leave orphaned
+ * `food_fts`/`food_fts_trigram` rows keyed on the old rowid, which either
+ * silently doubles a query's hits or (with a plain PRIMARY KEY reused rowid)
+ * corrupts the replacement row's own FTS entry.
  *
- * `INSERT OR IGNORE` against the unique barcode index is exactly the dedup rule:
- * whichever tier is ingested FIRST owns a GTIN. OFF is ingested before
- * fdc_branded, so OFF wins, as the spec requires.
+ * Both FTS5 tables are `content=''` (contentless) — a plain `DELETE` against
+ * them is a hard SQLite error ("cannot DELETE from contentless fts5 table").
+ * Contentless tables require the original indexed values to be resupplied
+ * with the `'delete'` special command, since there's no content table for
+ * SQLite to read them back from; hence the SELECT before each delete.
+ */
+function deleteFoodRow(db, id) {
+  const ftsRow = db.prepare('SELECT name, brand, synonyms FROM food_fts WHERE rowid = ?').get(id)
+  if (ftsRow != null) {
+    db.prepare("INSERT INTO food_fts (food_fts, rowid, name, brand, synonyms) VALUES ('delete', ?, ?, ?, ?)")
+      .run(id, ftsRow.name, ftsRow.brand, ftsRow.synonyms)
+  }
+  const trigramRow = db.prepare('SELECT name FROM food_fts_trigram WHERE rowid = ?').get(id)
+  if (trigramRow != null) {
+    db.prepare("INSERT INTO food_fts_trigram (food_fts_trigram, rowid, name) VALUES ('delete', ?, ?)")
+      .run(id, trigramRow.name)
+  }
+  db.prepare('DELETE FROM food_synonyms WHERE food_id = ?').run(id)
+  db.prepare('DELETE FROM food_micros WHERE food_id = ?').run(id)
+  db.prepare('DELETE FROM foods WHERE id = ?').run(id)
+}
+
+/**
+ * Insert one FoodRow. Returns the new rowid, or null when the row already
+ * existed (same source+source_id) or lost the GTIN to a same-or-higher-ranked
+ * tier.
+ *
+ * DEDUP RULE: on a shared barcode, the HIGHER-RANKED tier (`TIER_RANK`) wins,
+ * evaluated every time — not just on first insert. Rebuilding against a
+ * resident database that already has a GTIN from `fdc_branded` and then
+ * (re)ingesting `off` for that same GTIN must still let `off` win: this
+ * function looks up the resident row by barcode first and, when the
+ * incoming tier outranks it, deletes the resident row before inserting the
+ * new one. Relying on `INSERT OR IGNORE` against the unique barcode index
+ * alone is only correct on a virgin database — on any rebuild it is
+ * first-wins, which is a different (and wrong) rule from the spec's
+ * OFF-always-wins.
  */
 export function insertFood(db, row, now) {
+  if (row.barcode != null) {
+    const resident = db.prepare('SELECT id, tier FROM foods WHERE barcode = ?').get(row.barcode)
+    if (resident != null) {
+      const residentRank = TIER_RANK[resident.tier] ?? -1
+      const incomingRank = TIER_RANK[row.tier] ?? -1
+      if (incomingRank <= residentRank) return null
+      deleteFoodRow(db, resident.id)
+    }
+  }
+
   const brandId = resolveBrandId(db, row.brand)
   const info = db
     .prepare(
@@ -241,12 +310,23 @@ async function main() {
   console.log(`  off: ${stats.inserted} kept, ${stats.rejected} rejected, ${stats.skipped} skipped`)
 
   const brandedDir = process.env.FDC_BRANDED_DIR ?? join(homedir(), 'nut-ai-data/fdc')
-  let branded = { read: 0, inserted: 0, rejected: 0, dedupedToOff: 0 }
+  let branded = { read: 0, inserted: 0, rejected: 0, dedupedToOff: 0, alreadyImported: 0 }
+  // ONLY the existence check is speculative — a missing release directory is an
+  // expected "not downloaded yet" state. A real ingest error (malformed CSV, a
+  // SQL throw) is NOT caught here: it must propagate out of main() and fail the
+  // build loudly, the same as an OFF ingest error does. Swallowing it as
+  // "skipped" would let a corrupt branded release silently ship a build missing
+  // an entire tier.
+  let brandedAvailable = true
   try {
     await stat(join(brandedDir, 'branded/branded_food.csv'))
+  } catch {
+    brandedAvailable = false
+  }
+  if (brandedAvailable) {
     branded = await ingestBranded({ db, dir: brandedDir, insertFood })
     console.log(`  fdc_branded: ${branded.inserted} kept, ${branded.dedupedToOff} lost the GTIN to an OFF row`)
-  } catch {
+  } else {
     console.log('  fdc_branded: skipped (set FDC_BRANDED_DIR to the unpacked USDA branded release)')
   }
 
@@ -257,6 +337,7 @@ async function main() {
   writeCheckpoint(db, 'licenses', 'ODbL-1.0 (Open Food Facts) | CC0-1.0 (USDA FDC) | curated-cited (arab_curated)')
   writeCheckpoint(db, 'dedup_rule', 'same GTIN: the off row wins over fdc_branded')
   writeCheckpoint(db, 'schema_version', '1')
+  writeManifestSummary(db, { branded })
   writeCheckpoint(db, 'built_at', new Date().toISOString())
   db.close()
 }

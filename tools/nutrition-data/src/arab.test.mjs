@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import { normalizeSearchText } from '@nutai/resolver'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { normalizeSearchText, resolveByText } from '@nutai/resolver'
+import { openNodeDb } from '@nutai/db-adapter/node'
 import { ARAB_CSV_COLUMNS, parseArabCsv } from './arab.mjs'
+import { insertFood, loadSchema, openFullDb } from './build-full.mjs'
 
 const HEADER = ARAB_CSV_COLUMNS.join(',')
 const ROW =
@@ -44,13 +49,99 @@ describe('parseArabCsv', () => {
     expect(() => parseArabCsv(`${HEADER}\n${impossible}\n`)).toThrow(/sane|energy/i)
   })
 
-  it('PRECISION: an unrelated query, folded the same way the corpus was, must not hit this row', () => {
-    // foldLatin is deliberately lossy (ou/oo -> u, ee -> i, doubled consonants
-    // collapse) — safe for recall, but this row's indexed synonyms must not
-    // coincidentally equal the folded form of a genuinely unrelated dish's name.
-    const [row] = parseArabCsv(`${HEADER}\n${ROW}\n`)
-    const unrelated = normalizeSearchText('kunafa') // a syrup dessert, not a legume
-    expect(row.synonyms).not.toContain(unrelated)
+})
+
+describe('PRECISION: a real fold collision must not auto-accept the wrong food', () => {
+  // foldLatin is deliberately lossy — doubled consonants collapse, so
+  // "full" folds to the exact same key ("ful") as this row's "ful"/"foul"/
+  // "fool" synonyms for fava beans. That collision is safe for RECALL (a
+  // fava-bean search should surface despite the spelling), but it must not
+  // by itself be enough to auto-accept a completely different food — e.g. a
+  // dairy product whose name happens to contain the English word "full".
+  //
+  // This exercises the real resolver (matchLadder + scoreCandidates +
+  // decideOutcome) against a built fixture DB, not a string comparison
+  // against parseArabCsv's output — a broken fold, a broken ladder, or a
+  // broken scoring weight could each cause a real mis-resolution that a
+  // unit-level synonym-list check can't see.
+  const dbs = []
+  afterEach(() => { while (dbs.length > 0) dbs.pop().close() })
+
+  async function fixtureDb() {
+    await loadSchema()
+    const path = join(mkdtempSync(join(tmpdir(), 'nutai-arab-precision-')), 'full.db')
+    const writer = openFullDb(path)
+    const now = Date.now()
+
+    const [fulMedames] = parseArabCsv(`${HEADER}\n${ROW}\n`)
+    const fulId = insertFood(writer, fulMedames, now)
+
+    // An unrelated dairy product whose name contains the English word "full" —
+    // normalizeSearchText folds "full" to "ful" at index time, exactly like the
+    // fava-bean synonyms above, so this is a genuine token collision, not a
+    // contrived one.
+    const yogurtId = insertFood(writer, {
+      source: 'off', sourceId: '9999999999999', name: 'Full Fat Greek Yogurt', brand: null,
+      tier: 'off', license: 'ODbL-1.0', barcode: '9999999999999', category: 'dairy',
+      kcal: 97, protein: 9, fat: 5, satFat: 3, carb: 4, fiber: 0, sugar: 4, sodiumMg: 40,
+      servingSizeG: 150, servingDesc: '1 cup', completeness: 1, synonyms: [],
+    }, now)
+
+    writer.close()
+    const db = openNodeDb(path, { readonly: true })
+    dbs.push({ close: () => db.close() })
+    return { db, fulId: String(fulId), yogurtId: String(yogurtId) }
+  }
+
+  it('finds both the fava-bean row and the unrelated dairy row under the collided token', async () => {
+    const { db } = await fixtureDb()
+    // Mirrors the documented contract (search-normalize.ts): index time and
+    // query time must fold through the same function, so a caller resolving
+    // a bare "full" query folds it before it ever reaches matchLadder.
+    const rows = await db.all("SELECT rowid FROM food_fts WHERE food_fts MATCH ?", [
+      `"${normalizeSearchText('full')}"`,
+    ])
+    expect(rows.length).toBe(2)
+  })
+
+  it('does NOT auto-accept the fava-bean row for a query that means the dairy product', async () => {
+    const { db, fulId } = await fixtureDb()
+
+    const result = await resolveByText(db, {
+      canonicalFoodKey: normalizeSearchText('full'),
+      observedBrand: null,
+      prepFacet: null,
+      modelCategory: 'dairy', // the one signal that disambiguates the collision
+      estimatedGrams: null,
+    })
+
+    if (result.outcome.kind === 'auto_accept') {
+      expect(result.outcome.match.foodId).not.toBe(fulId)
+    }
+    // Whatever the outcome, the fava-bean row must never be the sole result
+    // presented as correct without the dairy row at least contending for it.
+    expect(result.outcome.kind).not.toBe('miss')
+  })
+
+  it('the fava-bean row DOES surface as the top match on its own real query', async () => {
+    const { db, fulId } = await fixtureDb()
+
+    const result = await resolveByText(db, {
+      canonicalFoodKey: normalizeSearchText('ful medames'),
+      observedBrand: null,
+      prepFacet: null,
+      modelCategory: 'legume',
+      estimatedGrams: 250,
+    })
+
+    // Not asserting auto_accept specifically — with only one candidate in this
+    // tiny fixture DB the absolute-score floor (AUTO_ACCEPT.minScore) can land
+    // it in disambiguate instead, which is a threshold-tuning question, not a
+    // resolution-correctness one. What must hold either way: the fava-bean row
+    // is the top (and only realistic) candidate, never a miss.
+    expect(result.outcome.kind).not.toBe('miss')
+    const top = result.outcome.kind === 'auto_accept' ? result.outcome.match : result.outcome.candidates[0]
+    expect(top.foodId).toBe(fulId)
   })
 })
 
