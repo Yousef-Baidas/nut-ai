@@ -108,6 +108,24 @@ describe('manual entry → log, with no key', () => {
     expect(phase.result.meal.engineId).toBe('manual-entry')
   })
 
+  it('shows the typed kcal, not 0, for a calories-only entry (issue #28)', () => {
+    // Repro: name + calories only, macros left at 0 (the form's own copy says
+    // this is enough). The result screen used to recompute kcal via Atwater
+    // over the rounded 0/0/0 macros and show 0, while day totals — which sum
+    // stored kcal directly — deducted the real figure.
+    startManualLog({ name: 'Protein bar', grams: 60, kcal: 150, protein_g: 0, carbs_g: 0, fat_g: 0 })
+    const phase = getPhase()
+    expect(phase.kind).toBe('ready')
+    if (phase.kind !== 'ready') throw new Error('unreachable')
+
+    expect(phase.result.totals.kcal).toBe(150)
+    // What dayTotals deducts: SUM(snap_energy_kcal * grams / 100 * portion).
+    const [row] = phase.result.meal.ingredients
+    const deducted =
+      (row!.nutrientSnapshot.kcal * row!.grams * phase.result.meal.portionEatenFraction) / 100
+    expect(phase.result.totals.kcal).toBeCloseTo(deducted, 6)
+  })
+
   it('carries no band — the user is not estimating', () => {
     startManualLog({ name: 'Toast', grams: 40, kcal: 100, protein_g: 3, carbs_g: 18, fat_g: 1 })
     const phase = getPhase()

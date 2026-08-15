@@ -10,19 +10,16 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ExerciseEstimateZ } from '@nutai/core-schema'
-import { cheapestModel, type ProviderId } from '@nutai/prompt'
 import { Icon, type IconName } from '../src/components/Icon'
 import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../src/components/KeyboardDoneBar'
-import { db, localDate, setting, weightHistory } from '../src/data/repo'
+import { describeExercise } from '../src/exercise/describe'
+import { latestWeightKg, saveEntry } from '../src/exercise/entries'
 import {
   exerciseKcal,
   INTENSITY_ANCHORS,
   type ExerciseKind,
   type Intensity,
 } from '../src/exercise/met'
-import { loadCredential } from '../src/inference/credentials'
-import { runExerciseEstimate } from '../src/inference/pathA/client'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 
@@ -59,20 +56,8 @@ const KIND_META: Record<ExerciseKind, { icon: IconName; title: string }> = {
 
 const DURATIONS = [15, 30, 60, 90] as const
 
-async function latestWeightKg(): Promise<number> {
-  const points = await weightHistory()
-  return points[points.length - 1]?.weightKg ?? 80
-}
-
-async function saveEntry(name: string, kcal: number): Promise<void> {
-  const now = Date.now()
-  const h = await db()
-  await h.run(
-    `INSERT INTO exercise_entries (local_date, name, kcal, provenance, external_id, logged_at)
-     VALUES (?,?,?,'manual',NULL,?)`,
-    [localDate(now), name, kcal, now],
-  )
-}
+/** Same fallback copy DescribeScreen shows for an unguarded rejection. */
+const SAVE_FAILED_MESSAGE = 'Something went wrong saving this workout. Try again.'
 
 export default function LogExercise() {
   const [step, setStep] = useState<Step>({ kind: 'menu' })
@@ -154,6 +139,7 @@ function IntensityScreen({ exercise, onBack }: { exercise: ExerciseKind; onBack:
   const [level, setLevel] = useState<Intensity>('medium')
   const [minutes, setMinutes] = useState('15')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const anchors = INTENSITY_ANCHORS[exercise]
   const mins = Number.parseInt(minutes, 10)
@@ -164,10 +150,19 @@ function IntensityScreen({ exercise, onBack }: { exercise: ExerciseKind; onBack:
   async function save() {
     if (!valid || saving) return
     setSaving(true)
-    const kg = await latestWeightKg()
-    const kcal = exerciseKcal(exercise, level, kg, mins)
-    await saveEntry(`${KIND_META[exercise].title} — ${level}, ${mins} min`, kcal)
-    router.back()
+    setError(null)
+    try {
+      // latestWeightKg (a SQLite read) and saveEntry (db() + INSERT) can both
+      // reject — an unguarded await here strands the CTA on "Saving…"
+      // forever, the same defect shape fixed for DescribeScreen.
+      const kg = await latestWeightKg()
+      const kcal = exerciseKcal(exercise, level, kg, mins)
+      await saveEntry(`${KIND_META[exercise].title} — ${level}, ${mins} min`, kcal)
+      router.back()
+    } catch {
+      setSaving(false)
+      setError(SAVE_FAILED_MESSAGE)
+    }
   }
 
   return (
@@ -253,9 +248,18 @@ function IntensityScreen({ exercise, onBack }: { exercise: ExerciseKind; onBack:
           keyboardType="number-pad"
           inputAccessoryViewID={DONE_ACCESSORY_ID}
           value={minutes}
-          onChangeText={setMinutes}
+          onChangeText={(t) => {
+            setMinutes(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border }]}
         />
+
+        {error ? (
+          <View style={[styles.example, { backgroundColor: theme.safetyBg, marginTop: space.md }]}>
+            <Text style={[type.caption, { color: theme.safety, lineHeight: 19 }]}>{error}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, space.lg), backgroundColor: theme.bg }]}>
@@ -286,27 +290,16 @@ function DescribeScreen({ onBack }: { onBack: () => void }) {
     setBusy(true)
     setError(null)
 
-    const provider = (await setting('provider')) as ProviderId | 'none' | ''
-    const credential = provider && provider !== 'none' ? await loadCredential(provider) : null
-    if (!credential || !provider || provider === 'none') {
-      setBusy(false)
-      setError('Describing a workout needs an API key — add one in Profile, or use Run, Weight lifting or Manual instead.')
+    // describeExercise owns the whole setting/credential/estimate/save chain
+    // and never throws — any rejection in that chain resolves to
+    // { ok: false, message }, so busy always gets cleared here instead of
+    // stranding the spinner on an unhandled rejection (issue #27's shape).
+    const outcome = await describeExercise(desc)
+    setBusy(false)
+    if (!outcome.ok) {
+      setError(outcome.message)
       return
     }
-
-    const model = (await setting('provider_model')) || cheapestModel(provider).id
-    const kg = await latestWeightKg()
-    const outcome = await runExerciseEstimate(provider, { model, description: desc, weightKg: kg }, credential)
-    const parsed = outcome.ok ? ExerciseEstimateZ.safeParse(outcome.raw) : null
-
-    if (!parsed?.success) {
-      setBusy(false)
-      setError(outcome.ok ? 'Could not turn that into an estimate — try adding a duration.' : (outcome.error?.message ?? 'The estimate failed.'))
-      return
-    }
-
-    const e = parsed.data
-    await saveEntry(e.duration_min ? `${e.label} — ${Math.round(e.duration_min)} min` : e.label, Math.round(e.calories_kcal))
     router.back()
   }
 
@@ -368,6 +361,7 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
   const [kcal, setKcal] = useState('')
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const n = Number.parseInt(kcal, 10)
   const valid = Number.isFinite(n) && n > 0 && n <= 5000
@@ -375,8 +369,17 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
   async function add() {
     if (!valid || saving) return
     setSaving(true)
-    await saveEntry(name.trim() || 'Workout', n)
-    router.back()
+    setError(null)
+    try {
+      // saveEntry (db() + INSERT) can reject — an unguarded await here
+      // strands the CTA on "Saving…" forever, the same defect shape fixed
+      // for DescribeScreen.
+      await saveEntry(name.trim() || 'Workout', n)
+      router.back()
+    } catch {
+      setSaving(false)
+      setError(SAVE_FAILED_MESSAGE)
+    }
   }
 
   return (
@@ -392,7 +395,10 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           placeholder="250"
           placeholderTextColor={theme.textFaint}
           value={kcal}
-          onChangeText={setKcal}
+          onChangeText={(t) => {
+            setKcal(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border, marginTop: space.sm }]}
         />
 
@@ -402,13 +408,22 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           placeholder="Workout"
           placeholderTextColor={theme.textFaint}
           value={name}
-          onChangeText={setName}
+          onChangeText={(t) => {
+            setName(t)
+            setError(null)
+          }}
           style={[styles.minutesInput, { color: theme.text, borderColor: theme.border, marginTop: space.sm, fontSize: 17, fontWeight: '400' }]}
         />
 
         <Text style={[type.caption, { color: theme.textFaint, marginTop: space.lg, lineHeight: 19 }]}>
           Recorded exactly as entered. Your number, your log.
         </Text>
+
+        {error ? (
+          <View style={[styles.example, { backgroundColor: theme.safetyBg, marginTop: space.md }]}>
+            <Text style={[type.caption, { color: theme.safety, lineHeight: 19 }]}>{error}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, space.lg), backgroundColor: theme.bg }]}>
@@ -417,7 +432,9 @@ function ManualScreen({ onBack }: { onBack: () => void }) {
           disabled={!valid || saving}
           style={[styles.cta, { backgroundColor: valid ? theme.text : theme.border }]}
         >
-          <Text style={[type.bodyStrong, { color: theme.bg, fontSize: 18 }]}>Add Exercise</Text>
+          <Text style={[type.bodyStrong, { color: theme.bg, fontSize: 18 }]}>
+            {saving ? 'Saving…' : 'Add Exercise'}
+          </Text>
         </Pressable>
       </View>
     </View>

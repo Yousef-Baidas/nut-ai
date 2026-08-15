@@ -343,6 +343,7 @@ export default function Result() {
                   void syncLoggedMeal(result, mealId, now).catch(() => {})
                 } catch {
                   setLogging(false)
+                  Alert.alert('Could not log this meal', 'Nothing was saved. Try again.')
                 }
               })()
             }}
