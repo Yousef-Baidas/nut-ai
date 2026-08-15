@@ -29,7 +29,7 @@ const REPO = join(HERE, '../../..')
 
 /** Where the unpacked USDA CSV directories live. Override with FDC_DIR. */
 const FDC_DIR = process.env.FDC_DIR ?? '/tmp/fdc'
-const OUT = process.env.OUT ?? join(REPO, 'apps/mobile/assets/nutrition.db')
+const OUT = process.env.OUT ?? join(REPO, 'tools/nutrition-data/out/nutrition.db')
 
 /**
  * Expected headers, verified against the real 2025-04-24 Foundation Foods and

@@ -23,7 +23,7 @@ import { makeFoodDb, runPipeline } from './index.js'
 
 const DB_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
-  '../../../apps/mobile/assets/nutrition.db',
+  '../../../tools/nutrition-data/out/nutrition.db',
 )
 
 const hasCorpus = existsSync(DB_PATH)
@@ -32,6 +32,13 @@ const maybe = hasCorpus ? describe : describe.skip
 if (!hasCorpus) {
   console.warn(`\n[pipeline] corpus not found at ${DB_PATH} — run \`npm run data:build\` first.\n`)
 }
+
+describe('corpus fixture location', () => {
+  it('lives in tools/nutrition-data/out, not in the app bundle', () => {
+    expect(DB_PATH.endsWith('tools/nutrition-data/out/nutrition.db')).toBe(true)
+    expect(DB_PATH).not.toContain('apps/mobile/assets')
+  })
+})
 
 function item(over: Partial<Item> = {}): Item {
   return {

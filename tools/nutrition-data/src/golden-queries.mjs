@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.DB ?? join(HERE, '../../../apps/mobile/assets/nutrition.db')
+const DB_PATH = process.env.DB ?? join(HERE, '../out/nutrition.db')
 
 /**
  * Each case asserts the SHAPE of a correct answer, not an exact row id — row ids

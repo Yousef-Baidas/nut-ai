@@ -13,10 +13,12 @@ apps/mobile/android/
 *.apk
 *.aab
 
-# Built data artifact — produced by nutai-nutrition-data, never committed here.
-# It is ODbL-licensed and lives on its own release cadence (PLAN.md D6/D8).
-apps/mobile/assets/nutrition.db
-apps/mobile/assets/nutrition.db-*
+# Built data artifacts — produced by nutai-nutrition-data, never committed here.
+# ODbL/CC0 mixed licensing on its own release cadence (PLAN.md D6/D8). The full
+# PC corpus lands in ~/nut-ai-data/ and is not under this tree at all, so
+# `git clean` cannot destroy a 30 GB rebuild.
+tools/nutrition-data/out/*.db
+tools/nutrition-data/out/*.db-*
 
 # Path B model weights — large binaries, fetched at build time
 apps/mobile/src/inference/pathB/models/*.pte
