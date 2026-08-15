@@ -8,6 +8,7 @@ import {
   reconcileFromMacros,
   roundDisplayGrams,
   toDisplayTotals,
+  toDisplayTotalsForMeal,
 } from './index.js'
 
 function row(over: Partial<IngredientRow> = {}): IngredientRow {
@@ -118,6 +119,97 @@ describe('calorie basis disclosure', () => {
     const r = row({ grams: 100, macrosUserEdited: true })
     expect(calorieBasisFor(r)).toBe('recomputed')
     expect(itemCalories(r)).toBeCloseTo(156.4, 6)
+  })
+})
+
+describe('toDisplayTotalsForMeal — basis-aware meal display (issue #28)', () => {
+  // Repro: a manual entry of 150 kcal with macros left at 0 (the app tells the
+  // user "only a name and calories are required") displayed 0 kcal on the
+  // result screen while dayTotals — which sums stored kcal directly — deducted
+  // the real 150. toDisplayTotals(recomputeTotals(meal)) always reconciles
+  // display kcal from Atwater over the ALREADY-ROUNDED macros, discarding a
+  // row's own trusted stored kcal even when nothing was edited.
+  it('shows the typed kcal for a calories-only manual entry, matching what dayTotals deducts', () => {
+    const manualRow = row({
+      origin: 'manual_custom',
+      sourceFoodId: null,
+      grams: 60,
+      nutrientSnapshot: { kcal: 250, protein_g: 0, fat_g: 0, carbs_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null },
+      bandHalfPct: 0,
+    })
+    const m = meal([manualRow])
+
+    // Old behaviour (documented here, not asserted): toDisplayTotals would
+    // reconcile from the rounded 0/0/0 macros and show 0 kcal.
+    expect(toDisplayTotals(recomputeTotals(m)).kcal).toBe(0)
+
+    // The fix: meal display kcal matches the row's basis-aware total, which
+    // dayTotals (SUM of snap_energy_kcal * grams / 100) also uses.
+    const displayed = toDisplayTotalsForMeal(m)
+    const deducted = m.ingredients.reduce((s, r) => s + (r.nutrientSnapshot.kcal * r.grams) / 100, 0)
+    expect(displayed.kcal).toBeCloseTo(deducted, 6)
+    expect(displayed.kcal).toBe(150)
+  })
+
+  it('leaves an untouched db_search row on the Atwater-reconciled figure — pipeline tests mandate it', () => {
+    // Same basis ('database', via calorieBasisFor) and the same display-vs-
+    // deduction split is visible on the DB-search flow too (issue #28's repro:
+    // 221 displayed vs 224 deducted). But unlike manual_custom, db_search is
+    // NOT switched to verbatim stored kcal here: pipeline.e2e.test.ts ("shows
+    // displayed calories that are reproducible from the displayed macros")
+    // and pipeline.corpus.test.ts ("keeps displayed calories reproducible
+    // from displayed macros across many real foods") pin the Atwater figure
+    // as REQUIRED for resolved database rows — a documented §6.3 mandate for
+    // that row class, per the controller ruling this fix follows.
+    const dbRow = row({
+      grams: 150,
+      nutrientSnapshot: { kcal: 224, protein_g: 13, fat_g: 13, carbs_g: 13, fiber_g: 0, sugar_g: 0, sodium_mg: 0 },
+    })
+    const m = meal([dbRow])
+    expect(toDisplayTotalsForMeal(m)).toEqual(toDisplayTotals(recomputeTotals(m)))
+  })
+
+  it('still reconciles from macros for a row the user has edited', () => {
+    const edited = row({
+      grams: 100,
+      nutrientSnapshot: { kcal: 2964, protein_g: 175, fat_g: 100, carbs_g: 380, fiber_g: 0, sodium_mg: 0 },
+      macrosUserEdited: true,
+    })
+    const m = meal([edited])
+    // Atwater: 175*4 + 380*4 + 100*9 = 700 + 1520 + 900 = 3120.
+    expect(toDisplayTotalsForMeal(m).kcal).toBe(3120)
+  })
+
+  it('mixes: a manual_custom row contributes its own kcal, a db_search row keeps Atwater', () => {
+    const manualRow = row({
+      id: 'r1',
+      origin: 'manual_custom',
+      sourceFoodId: null,
+      grams: 60,
+      nutrientSnapshot: { kcal: 250, protein_g: 0, fat_g: 0, carbs_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null },
+      bandHalfPct: 0,
+    })
+    const dbRow = row({
+      id: 'r2',
+      grams: 150,
+      nutrientSnapshot: { kcal: 224, protein_g: 13, fat_g: 13, carbs_g: 13, fiber_g: 0, sugar_g: 0, sodium_mg: 0 },
+    })
+    const m = meal([manualRow, dbRow])
+    const dbOnlyAtwater = toDisplayTotals(recomputeTotals({ ...m, ingredients: [dbRow] })).kcal
+    // manual row's raw kcal (150) plus the db row's Atwater-reconciled kcal.
+    expect(toDisplayTotalsForMeal(m).kcal).toBe(150 + dbOnlyAtwater)
+  })
+
+  it('scales the basis-aware kcal by portionEatenFraction', () => {
+    const manualRow = row({
+      origin: 'manual_custom',
+      sourceFoodId: null,
+      grams: 60,
+      nutrientSnapshot: { kcal: 250, protein_g: 0, fat_g: 0, carbs_g: 0, fiber_g: null, sugar_g: null, sodium_mg: null },
+      bandHalfPct: 0,
+    })
+    const m = meal([manualRow], 0.5)
+    expect(toDisplayTotalsForMeal(m).kcal).toBe(75)
   })
 })
 

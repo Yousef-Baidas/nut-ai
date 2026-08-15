@@ -23,7 +23,7 @@ import {
 } from '@nutai/gram-engine'
 import { selectMealQuestions, type SelectedQuestion } from '@nutai/repair'
 import { loadFood, resolveByBarcode, resolveByText, type ResolvedFood } from '@nutai/resolver'
-import { recomputeTotals, toDisplayTotals, type DisplayTotals } from '@nutai/totals'
+import { toDisplayTotalsForMeal, type DisplayTotals } from '@nutai/totals'
 
 /**
  * The pipeline — stages 4 through 9, wired.
@@ -154,12 +154,13 @@ export async function runPipeline(
   const { payload, flags } = clamp(validated)
 
   if (!payload.is_food) {
+    const meal = emptyMeal(deps.now)
     return {
       isFood: false,
       refusalReason: payload.refusal_reason,
       items: [],
-      meal: emptyMeal(deps.now),
-      totals: toDisplayTotals({ kcal: 0, protein_g: 0, fat_g: 0, carbs_g: 0, fiber_g: 0, sugar_g: 0, sodium_mg: 0 }),
+      meal,
+      totals: toDisplayTotalsForMeal(meal),
       mealBand: { halfPct: 0, tier: 'none', reasons: [] },
       questions: [],
       clampFlags: flags,
@@ -302,7 +303,7 @@ export async function runPipeline(
     schemaVersion: payload.schema_version,
     clampFlags: flags,
   }
-  const totals = toDisplayTotals(recomputeTotals(meal))
+  const totals = toDisplayTotalsForMeal(meal)
 
   const banded = items.map((i) => ({
     kcal: (i.row.nutrientSnapshot.kcal * i.row.grams) / 100,
@@ -363,7 +364,7 @@ export function recomputeAfterEdit(meal: LoggedMeal, bands: readonly Band[]): {
   totals: DisplayTotals
   mealBand: Band
 } {
-  const totals = toDisplayTotals(recomputeTotals(meal))
+  const totals = toDisplayTotalsForMeal(meal)
   const banded = meal.ingredients.map((row, i) => ({
     kcal: ((row.nutrientSnapshot.kcal * row.grams) / 100) * meal.portionEatenFraction,
     band: bands[i] ?? { halfPct: row.bandHalfPct, tier: 'moderate' as const, reasons: [] },
