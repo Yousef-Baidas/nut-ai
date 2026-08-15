@@ -115,6 +115,9 @@ export async function persistOnboarding(
     }
   })
 
-  await db.close()
+  // No db.close() here: expo-sqlite dedupes opens of the same filename onto one
+  // shared connection, so closing this handle can tear down `user.db` for the
+  // whole process — every `prepareAsync` after this point NPEs. The adapter is
+  // process-lived; nothing in this app ever closes it.
   await Storage.setItem(ONBOARDING_DONE_KEY, 'true')
 }
