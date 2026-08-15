@@ -47,11 +47,37 @@ class ExpoDbAdapter implements DbAdapter {
   }
 }
 
+/**
+ * One adapter per database filename, for the life of the process.
+ *
+ * expo-sqlite dedupes `openDatabaseAsync(name)` calls onto a single shared
+ * native connection per filename, but its teardown is not refcounted: when
+ * ANY JS handle for that filename is garbage-collected, expo-sqlite releases
+ * the shared native connection out from under every other handle, poisoning
+ * every subsequent `prepareAsync` in the process (see
+ * .superpowers/sdd/fix-live-defects-plan/npe-root-cause.md). Memoizing the
+ * open *promise* — not the resolved value — means exactly one JS handle ever
+ * exists per filename and no orphan handle can ever be collected, and it also
+ * means concurrent first callers share the same in-flight open rather than
+ * racing to open the file twice.
+ */
+const OPEN = new Map<string, Promise<DbAdapter>>()
+function openOnce(name: string, open: () => Promise<DbAdapter>): Promise<DbAdapter> {
+  let p = OPEN.get(name)
+  if (!p) {
+    p = open()
+    OPEN.set(name, p)
+  }
+  return p
+}
+
 /** The writable user database. */
-export async function openUserDb(): Promise<DbAdapter> {
-  const db = await SQLite.openDatabaseAsync('user.db')
-  await db.execAsync('PRAGMA foreign_keys = ON;')
-  return new ExpoDbAdapter(db)
+export function openUserDb(): Promise<DbAdapter> {
+  return openOnce('user.db', async () => {
+    const db = await SQLite.openDatabaseAsync('user.db')
+    await db.execAsync('PRAGMA foreign_keys = ON;')
+    return new ExpoDbAdapter(db)
+  })
 }
 
 /**
@@ -70,23 +96,25 @@ export async function openUserDb(): Promise<DbAdapter> {
  */
 let nutritionImported = false
 
-export async function openNutritionDb(): Promise<DbAdapter> {
-  if (!nutritionImported) {
-    try {
-      await SQLite.importDatabaseFromAssetAsync('nutrition.db', {
-        assetId: require('../../assets/nutrition.db'),
-        // Idempotent by name. Re-copying 4.7 MB on every cold start would be a
-        // visible delay for nothing.
-        forceOverwrite: false,
-      })
-    } catch {
-      // Already imported by a previous launch — the common path.
+export function openNutritionDb(): Promise<DbAdapter> {
+  return openOnce('nutrition.db', async () => {
+    if (!nutritionImported) {
+      try {
+        await SQLite.importDatabaseFromAssetAsync('nutrition.db', {
+          assetId: require('../../assets/nutrition.db'),
+          // Idempotent by name. Re-copying 4.7 MB on every cold start would be a
+          // visible delay for nothing.
+          forceOverwrite: false,
+        })
+      } catch {
+        // Already imported by a previous launch — the common path.
+      }
+      nutritionImported = true
     }
-    nutritionImported = true
-  }
 
-  const db = await SQLite.openDatabaseAsync('nutrition.db')
-  return new ExpoDbAdapter(db)
+    const db = await SQLite.openDatabaseAsync('nutrition.db')
+    return new ExpoDbAdapter(db)
+  })
 }
 
 /**
