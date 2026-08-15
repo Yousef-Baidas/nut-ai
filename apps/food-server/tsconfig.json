@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "types": ["node"] },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../packages/core-schema" },
+    { "path": "../../packages/db-adapter" },
+    { "path": "../../packages/resolver" },
+    { "path": "../../packages/confidence" },
+    { "path": "../../packages/gram-engine" },
+    { "path": "../../packages/repair" },
+    { "path": "../../packages/totals" },
+    { "path": "../../packages/pipeline" }
+  ]
+}

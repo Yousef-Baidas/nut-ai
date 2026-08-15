@@ -1,0 +1,24 @@
+{
+  "name": "@nutai/food-server",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "description": "The PC-hosted food lookup service. Tailnet only; never exposed to the internet.",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@nutai/confidence": "*",
+    "@nutai/core-schema": "*",
+    "@nutai/db-adapter": "*",
+    "@nutai/gram-engine": "*",
+    "@nutai/pipeline": "*",
+    "@nutai/resolver": "*"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "*"
+  }
+}

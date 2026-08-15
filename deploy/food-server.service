@@ -1,0 +1,29 @@
+# nut-ai food server — systemd USER unit.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|@REPO@|$HOME/Projects/ios-alt/nut-ai|; s|@TSIP@|$(tailscale ip -4)|" \
+#     deploy/food-server.service > ~/.config/systemd/user/food-server.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now food-server
+#
+# Absolute paths only, same as the lute/odysseus units.
+
+[Unit]
+Description=nut-ai food server (tailnet only)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+Environment=NUTAI_HOST=@TSIP@
+Environment=NUTAI_PORT=7100
+Environment=NUTAI_DB=%h/nut-ai-data/nutrition-full.db
+ExecStartPre=/usr/bin/npm --prefix @REPO@ run build:server
+ExecStart=/usr/bin/node @REPO@/apps/food-server/dist/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
