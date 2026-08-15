@@ -21,6 +21,7 @@
     "check:node-purity": "node scripts/check-node-purity.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run check:node-purity && npm run data:verify",
     "data:build": "node tools/nutrition-data/src/build.mjs",
+    "data:build:full": "npm run build:packages && node tools/nutrition-data/src/build-full.mjs",
     "data:verify": "node tools/nutrition-data/src/golden-queries.mjs",
     "build:packages": "tsc --build packages/core-schema packages/db-adapter packages/clamp packages/resolver",
     "postinstall": "node scripts/patch-expo-modules-jsi.mjs"

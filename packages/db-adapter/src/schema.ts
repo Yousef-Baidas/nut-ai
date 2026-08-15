@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS foods (
   completeness_score REAL,
   popularity_rank    INTEGER,
   license            TEXT NOT NULL,
+  tier               TEXT,
   updated_at         INTEGER
 );
 
@@ -71,6 +72,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_foods_barcode
 CREATE INDEX IF NOT EXISTS idx_foods_barcode_cover
   ON foods(barcode, name, brand_id, energy_kcal, protein_g, fat_g, carb_g);
 CREATE INDEX IF NOT EXISTS idx_foods_popularity ON foods(popularity_rank);
+CREATE INDEX IF NOT EXISTS idx_foods_tier ON foods(tier);
 
 CREATE TABLE IF NOT EXISTS food_micros (
   food_id       INTEGER REFERENCES foods(id),
