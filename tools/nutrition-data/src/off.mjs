@@ -99,7 +99,10 @@ export function isNutritionallySane(f) {
   // the ratio test is meaningless there and only the absolute bound applies.
   if (atwater < 10 && f.kcal < 10) return true
   const denom = Math.max(atwater, 1)
-  return Math.abs(f.kcal - atwater) / denom <= 1 + CLAMP_BOUNDS.MACRO_ARITHMETIC_TOLERANCE
+  // Clamp semantics: the stated kcal may be off by at most this FRACTION of the
+  // Atwater estimate — a 15% band, not a 115% one. A stated kcal of 0 against
+  // real macros is exactly the failure this exists to catch, on the low side.
+  return Math.abs(f.kcal - atwater) / denom <= CLAMP_BOUNDS.MACRO_ARITHMETIC_TOLERANCE
 }
 
 /** OffFood -> the FoodRow the writer inserts. */

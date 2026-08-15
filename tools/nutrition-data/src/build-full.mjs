@@ -77,6 +77,23 @@ export function writeCheckpoint(db, key, value) {
 }
 
 /**
+ * Look up (or create) the brand row and return its id, or null for an
+ * unbranded product. `foods.brand_id` is the schema's real home for brand
+ * (schema.ts:33,44) — writing it only into food_fts left every barcode hit
+ * brand-less, since loadFood/resolveByBarcode read brand off `brands` via
+ * `brand_id`, never off the FTS row.
+ */
+function resolveBrandId(db, brandName) {
+  if (brandName == null) return null
+  const name = brandName.trim()
+  if (name === '') return null
+  const existing = db.prepare('SELECT id FROM brands WHERE canonical_name = ?').get(name)
+  if (existing != null) return existing.id
+  const info = db.prepare('INSERT INTO brands (canonical_name) VALUES (?)').run(name)
+  return Number(info.lastInsertRowid)
+}
+
+/**
  * Insert one FoodRow. Returns the new rowid, or null when the row already
  * existed (same source+source_id) or lost the GTIN uniqueness race.
  *
@@ -85,16 +102,17 @@ export function writeCheckpoint(db, key, value) {
  * fdc_branded, so OFF wins, as the spec requires.
  */
 export function insertFood(db, row, now) {
+  const brandId = resolveBrandId(db, row.brand)
   const info = db
     .prepare(
       `INSERT OR IGNORE INTO foods
-         (source, source_id, name, category, basis, basis_confidence, serving_size_g,
+         (source, source_id, name, brand_id, category, basis, basis_confidence, serving_size_g,
           serving_desc, barcode, energy_kcal, protein_g, fat_g, sat_fat_g, carb_g,
           fiber_g, sugar_g, sodium_mg, completeness_score, tier, license, updated_at)
-       VALUES (?,?,?,?, 'per_100g', 'high', ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?, 'per_100g', 'high', ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .run(
-      row.source, row.sourceId, row.name, row.category ?? null, row.servingSizeG ?? null,
+      row.source, row.sourceId, row.name, brandId, row.category ?? null, row.servingSizeG ?? null,
       row.servingDesc ?? null, row.barcode ?? null, row.kcal, row.protein, row.fat,
       row.satFat ?? null, row.carb, row.fiber ?? null, row.sugar ?? null, row.sodiumMg ?? null,
       row.completeness, row.tier, row.license, now,
@@ -103,8 +121,9 @@ export function insertFood(db, row, now) {
 
   const id = Number(info.lastInsertRowid)
   const synonyms = row.synonyms.join(' ')
+  const normalizedBrand = row.brand != null ? normalizeSearchText(row.brand) : ''
   db.prepare('INSERT INTO food_fts (rowid, name, brand, synonyms) VALUES (?,?,?,?)').run(
-    id, normalizeSearchText(row.name), row.brand ?? '', synonyms,
+    id, normalizeSearchText(row.name), normalizedBrand, synonyms,
   )
   db.prepare('INSERT INTO food_fts_trigram (rowid, name) VALUES (?,?)').run(id, normalizeSearchText(row.name))
   const insSyn = db.prepare('INSERT INTO food_synonyms (food_id, synonym, synonym_type) VALUES (?,?,?)')
@@ -113,38 +132,66 @@ export function insertFood(db, row, now) {
 }
 
 /**
+ * A cheap identity for the dump file — size plus mtime, not a hash, because
+ * hashing a 9 GB file just to decide whether to resume defeats the point of
+ * resuming. Good enough to catch "this is a different weekly export" without
+ * reading the file twice.
+ */
+async function dumpIdentity(jsonlGzPath) {
+  const st = await stat(jsonlGzPath)
+  return `${st.size}:${Math.trunc(st.mtimeMs)}`
+}
+
+/**
  * Stream the OFF dump into `db`.
  *
  * `resume` (default true) starts after the recorded checkpoint line, which is
- * what makes a nine-gigabyte import survive an interruption.
+ * what makes a nine-gigabyte import survive an interruption. The checkpoint is
+ * only honored when the dump's identity (size+mtime) still matches what was
+ * recorded — resuming a stale line number against a newer weekly export would
+ * silently skip its first N lines, since line N of the new file is a different
+ * product than line N of the old one.
  */
 export async function ingestOff({ db, jsonlGzPath, resume = true, limit = Infinity, onProgress = null }) {
-  const startLine = resume ? Number(readCheckpoint(db, 'off.line') ?? 0) : 0
-  const stats = { read: 0, inserted: 0, rejected: 0, skipped: 0 }
+  const identity = await dumpIdentity(jsonlGzPath)
+  const storedIdentity = readCheckpoint(db, 'off.dump')
+  const dumpChanged = storedIdentity != null && storedIdentity !== identity
+  const startLine = resume && !dumpChanged ? Number(readCheckpoint(db, 'off.line') ?? 0) : 0
+  const stats = { read: 0, inserted: 0, rejected: 0, ignored: 0, skipped: 0 }
   const now = Date.now()
 
-  const rl = createInterface({
-    input: createReadStream(jsonlGzPath).pipe(createGunzip()),
-    crlfDelay: Infinity,
-  })
+  const fileStream = createReadStream(jsonlGzPath)
+  const gunzip = createGunzip()
+  const rl = createInterface({ input: fileStream.pipe(gunzip), crlfDelay: Infinity })
 
   let lineNo = 0
   let sinceCheckpoint = 0
   db.exec('BEGIN')
   try {
     for await (const line of rl) {
+      // Checked BEFORE bumping lineNo, so a limit-triggered break never counts
+      // the unread next line as "done" — otherwise the checkpoint records a
+      // line that was never parsed, and a resumed run drops it forever.
+      if (stats.read >= limit) break
       lineNo++
       if (lineNo <= startLine) { stats.skipped++; continue }
-      if (stats.read >= limit) break
 
       stats.read++
       const food = parseOffLine(line)
-      if (food == null || !isNutritionallySane(food)) { stats.rejected++ }
-      else if (insertFood(db, offFoodToRow(food), now) != null) { stats.inserted++ }
+      if (food == null || !isNutritionallySane(food)) {
+        stats.rejected++
+      } else if (insertFood(db, offFoodToRow(food), now) != null) {
+        stats.inserted++
+      } else {
+        // Sane and complete, but an INSERT OR IGNORE collision on
+        // (source, source_id) or barcode — already imported, not rejected.
+        stats.ignored++
+      }
 
       sinceCheckpoint++
       if (sinceCheckpoint >= CHECKPOINT_EVERY) {
         writeCheckpoint(db, 'off.line', lineNo)
+        writeCheckpoint(db, 'off.dump', identity)
         db.exec('COMMIT')
         db.exec('BEGIN')
         sinceCheckpoint = 0
@@ -152,10 +199,15 @@ export async function ingestOff({ db, jsonlGzPath, resume = true, limit = Infini
       }
     }
     writeCheckpoint(db, 'off.line', lineNo)
+    writeCheckpoint(db, 'off.dump', identity)
     db.exec('COMMIT')
   } catch (err) {
     db.exec('ROLLBACK')
     throw err
+  } finally {
+    rl.close()
+    gunzip.destroy()
+    fileStream.destroy()
   }
 
   return stats

@@ -68,4 +68,66 @@ describe('ingestOff', () => {
     expect(resumed.read).toBe(0)
     expect(resumed.skipped).toBe(4)
   })
+
+  it('does not drop a line when a limited run is resumed (limit/checkpoint off-by-one)', async () => {
+    const { gz, db } = await fixture()
+    // Line 1 (Almarai) is sane and gets inserted; the limit stops right there.
+    const first = await ingestOff({ db, jsonlGzPath: gz, limit: 1 })
+    expect(first.read).toBe(1)
+    expect(first.inserted).toBe(1)
+    // The bug incremented the line counter for the NEXT (unread) line before
+    // checking the limit, so the checkpoint recorded 2 instead of 1 and line 2
+    // (Cola Zero, also sane) was silently skipped on resume.
+    expect(Number(readCheckpoint(db, 'off.line'))).toBe(1)
+
+    const second = await ingestOff({ db, jsonlGzPath: gz })
+    expect(second.read).toBe(3)
+    expect(second.skipped).toBe(1)
+    expect(db.prepare('SELECT COUNT(*) c FROM foods').get().c).toBe(2)
+    expect(db.prepare("SELECT name FROM foods WHERE barcode = '5000112637922'").get().name).toBe('Cola Zero')
+  })
+
+  it('reports INSERT OR IGNORE collisions as ignored, not rejected, so read == inserted+rejected+ignored', async () => {
+    const { gz, db } = await fixture()
+    await ingestOff({ db, jsonlGzPath: gz })
+    const again = await ingestOff({ db, jsonlGzPath: gz, resume: false })
+    expect(again.read).toBe(4)
+    expect(again.inserted).toBe(0)
+    expect(again.ignored).toBe(2)
+    expect(again.rejected).toBe(2)
+    expect(again.read).toBe(again.inserted + again.rejected + again.ignored)
+  })
+
+  it('resets the checkpoint when the dump file is a different export (size/mtime changed)', async () => {
+    const { gz, db } = await fixture()
+    await ingestOff({ db, jsonlGzPath: gz, limit: 1 })
+    expect(Number(readCheckpoint(db, 'off.line'))).toBe(1)
+
+    // Simulate a newer weekly OFF dump landing at the same path: different
+    // bytes, so a different size (and, on any real filesystem, a different
+    // mtime) — this must NOT resume from the stale line-1 checkpoint.
+    const newerLines = [
+      ...LINES,
+      { code: '3333333333333', product_name: 'New Product', brands: 'Z',
+        nutriments: { 'energy-kcal_100g': 50, proteins_100g: 5, fat_100g: 5, carbohydrates_100g: 5 } },
+    ]
+    writeFileSync(gz, gzipSync(newerLines.map((l) => JSON.stringify(l)).join('\n') + '\n'))
+
+    const resumed = await ingestOff({ db, jsonlGzPath: gz })
+    expect(resumed.read).toBe(newerLines.length)
+    expect(resumed.skipped).toBe(0)
+  })
+
+  it('writes the brand via brand_id so a barcode hit resolves to it', async () => {
+    const { gz, db } = await fixture()
+    await ingestOff({ db, jsonlGzPath: gz })
+    const row = db
+      .prepare(
+        `SELECT b.canonical_name AS brand FROM foods f
+         JOIN brands b ON b.id = f.brand_id
+         WHERE f.barcode = ?`,
+      )
+      .get('6281006012011')
+    expect(row.brand).toBe('Almarai')
+  })
 })

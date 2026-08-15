@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { isNutritionallySane, offFoodToRow, parseOffLine } from './off.mjs'
+
+const FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/off-sample.jsonl')
 
 const GOOD = JSON.stringify({
   code: '6281006012011',
@@ -93,9 +98,30 @@ describe('isNutritionallySane', () => {
     expect(isNutritionallySane({ ...f, kcal: 400 })).toBe(false)
   })
 
+  it('pins the tolerance band to 15%, not 115%, on both sides', () => {
+    const f = parseOffLine(GOOD)
+    // 4*5 + 4*5 + 9*5 = 85 kcal Atwater. Band is [72.25, 97.75].
+    expect(isNutritionallySane({ ...f, protein: 5, fat: 5, carb: 5, kcal: 95 })).toBe(true)
+    expect(isNutritionallySane({ ...f, protein: 5, fat: 5, carb: 5, kcal: 105 })).toBe(false)
+    // The old `1 + tolerance` bug let a stated 0 kcal against real macros
+    // through as an "85 kcal off, well within a 115% band" false accept.
+    expect(isNutritionallySane({ ...f, protein: 5, fat: 5, carb: 5, kcal: 0 })).toBe(false)
+  })
+
   it('rejects negative values', () => {
     const f = parseOffLine(GOOD)
     expect(isNutritionallySane({ ...f, protein: -1 })).toBe(false)
+  })
+})
+
+describe('the checked-in off-sample.jsonl fixture', () => {
+  it('structurally parses 5 of 6 rows and sanity-passes 4 of those', () => {
+    const lines = readFileSync(FIXTURE_PATH, 'utf8').trim().split('\n')
+    const parsed = lines.map(parseOffLine)
+    // "Missing Fat Row" has no fat_100g and is dropped by parseOffLine itself.
+    expect(parsed.filter((f) => f != null).length).toBe(5)
+    // "Broken Density Row" parses fine but fails the kcal/100g ceiling.
+    expect(parsed.filter((f) => f != null && isNutritionallySane(f)).length).toBe(4)
   })
 })
 
