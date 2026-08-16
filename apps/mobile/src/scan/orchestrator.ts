@@ -861,23 +861,38 @@ export async function lookupOther(rowId: string, typed: string): Promise<void> {
  *
  * Returns false when the corpus row vanished between search and tap, which is
  * the caller's cue to say so rather than to open an empty review screen.
+ *
+ * Two call shapes, on purpose: a `foodId` string still does the local bundled-
+ * corpus lookup this always did (the keyless test below pins that path), but
+ * the PC-food-server screen already has the full row in hand from `/search` —
+ * making it re-fetch that same row out of a local DB it may not even be in
+ * would be a second, redundant, possibly-wrong lookup. Passing the row directly
+ * skips the DB round trip and returns synchronously.
  */
-export async function startSearchLog(foodId: string, grams: number): Promise<boolean> {
-  let food: CorpusFoodRow | null = null
-  try {
-    const ndb = await openNutritionDb()
-    food = await ndb.get<CorpusFoodRow>(
-      `SELECT id, name, energy_kcal, protein_g, fat_g, carb_g, fiber_g, sugar_g, sodium_mg
-         FROM foods WHERE id = ? LIMIT 1`,
-      [foodId],
-    )
-  } catch {
-    food = null
+export function startSearchLog(foodId: string, grams: number): Promise<boolean>
+export function startSearchLog(food: CorpusFoodRow, grams: number): boolean
+export function startSearchLog(foodOrId: string | CorpusFoodRow, grams: number): boolean | Promise<boolean> {
+  if (typeof foodOrId !== 'string') {
+    readyFromRows([rowFromCorpusFood(foodOrId, grams, Date.now())], null, 'search-log', null)
+    return true
   }
-  if (!food) return false
+  return (async () => {
+    let food: CorpusFoodRow | null = null
+    try {
+      const ndb = await openNutritionDb()
+      food = await ndb.get<CorpusFoodRow>(
+        `SELECT id, name, energy_kcal, protein_g, fat_g, carb_g, fiber_g, sugar_g, sodium_mg
+           FROM foods WHERE id = ? LIMIT 1`,
+        [foodOrId],
+      )
+    } catch {
+      food = null
+    }
+    if (!food) return false
 
-  readyFromRows([rowFromCorpusFood(food, grams, Date.now())], null, 'search-log', null)
-  return true
+    readyFromRows([rowFromCorpusFood(food, grams, Date.now())], null, 'search-log', null)
+    return true
+  })()
 }
 
 /** Log a food the user typed by hand. No database read, no network, no key. */

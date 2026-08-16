@@ -68,6 +68,7 @@ function Root() {
         <Stack.Screen name="result" options={{ presentation: 'modal', gestureEnabled: false }} />
         <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
         <Stack.Screen name="provider-settings" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="food-server-settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="log-exercise" options={{ presentation: 'modal' }} />
         <Stack.Screen name="food-search" options={{ presentation: 'modal' }} />
         <Stack.Screen name="saved-foods" options={{ presentation: 'modal' }} />

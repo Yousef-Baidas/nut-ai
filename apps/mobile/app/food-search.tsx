@@ -2,11 +2,17 @@ import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { DbAdapter } from '@nutai/db-adapter'
-import { resolveByText, type ScoredCandidate } from '@nutai/resolver'
+import type { ScoredCandidate } from '@nutai/resolver'
 import { PortionSheet } from '../src/components/PortionSheet'
-import { nutritionCorpusInfo, openNutritionDb } from '../src/db/expo-adapter'
-import { DEFAULT_PORTION_GRAMS, portionOptionsFor, type PortionOption } from '../src/db/portion-options'
+import {
+  UNREACHABLE_COPY,
+  fetchHealth,
+  searchFoods,
+  type FoodDetail,
+  type Health,
+} from '../src/data/food-server'
+import { DEFAULT_PORTION_GRAMS, toPortionOptions, type PortionOption } from '../src/db/portion-options'
+import { corpusRowFromResolved } from '../src/scan/rows'
 import { startSearchLog } from '../src/scan/orchestrator'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
@@ -14,71 +20,78 @@ import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 /**
  * Foods — the library that replaces the incumbent's `Groups` social feed.
  *
- * Right now it is also the honest way to test the whole resolution stack on
- * device WITHOUT an API key: type a food, and the query runs through the real
- * `@nutai/resolver` — FTS5 candidate generation, six-signal scoring, the two-part
- * auto-accept rule — against the real 7,928-row USDA corpus. Everything here is
- * local. No network request is made by this screen, ever.
+ * The corpus lives on the user's PC now, reached over Tailscale through
+ * `../src/data/food-server`. There is no bundled database on the phone any
+ * more, so "unreachable" is a first-class state here, not an edge case: the
+ * PC being asleep must read as an honest sentence, never a hang or a false
+ * "nothing matched".
  */
 export default function FoodSearch() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
 
-  const [db, setDb] = useState<DbAdapter | null>(null)
-  const [corpus, setCorpus] = useState<{ foods: number; portions: number; builtAt: string | null } | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
+  const [healthError, setHealthError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ScoredCandidate[]>([])
+  const [details, setDetails] = useState<Record<string, FoodDetail>>({})
   const [outcome, setOutcome] = useState<string>('')
+  const [unreachable, setUnreachable] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<{ candidate: ScoredCandidate; options: PortionOption[] } | null>(null)
 
   useEffect(() => {
     let alive = true
-    ;(async () => {
-      const handle = await openNutritionDb()
-      const info = await nutritionCorpusInfo(handle)
+    void (async () => {
+      const r = await fetchHealth()
       if (!alive) return
-      setDb(handle)
-      setCorpus(info)
+      if (r.kind === 'ok') { setHealth(r.value); setHealthError(null) }
+      else { setHealth(null); setHealthError(UNREACHABLE_COPY) }
     })()
     return () => { alive = false }
   }, [])
 
   useEffect(() => {
-    if (!db || query.trim().length < 2) { setResults([]); setOutcome(''); return }
+    if (query.trim().length < 2) { setResults([]); setDetails({}); setOutcome(''); setUnreachable(false); return }
     let alive = true
     setBusy(true)
-    const timer = setTimeout(async () => {
-      const r = await resolveByText(db, {
-        canonicalFoodKey: query,
-        observedBrand: null,
-        prepFacet: null,
-        modelCategory: null,
-        estimatedGrams: 150,
-      })
-      if (!alive) return
-      if (r.outcome.kind === 'auto_accept') {
-        setResults([r.outcome.match])
-        setOutcome(`auto-accepted (score ${r.outcome.match.score.toFixed(2)})`)
-      } else if (r.outcome.kind === 'disambiguate') {
-        setResults(r.outcome.candidates)
-        setOutcome(`${r.outcome.candidates.length} candidates — tap the right one`)
-      } else {
-        setResults([])
-        setOutcome('no match — this would log as an AI estimate')
-      }
-      setBusy(false)
+    const timer = setTimeout(() => {
+      void (async () => {
+        const r = await searchFoods(query.trim(), 150)
+        if (!alive) return
+        // The spinner is cleared on EVERY branch, including the failures. A
+        // spinner that outlives its request is the defect class this screen
+        // has already been fixed for once.
+        setBusy(false)
+        if (r.kind !== 'ok') {
+          setResults([]); setDetails({}); setUnreachable(true)
+          setOutcome(r.kind === 'not_found' ? 'no match' : UNREACHABLE_COPY)
+          return
+        }
+        setUnreachable(false)
+        setDetails(r.value.details)
+        const o = r.value.outcome
+        if (o.kind === 'auto_accept') {
+          setResults([o.match])
+          setOutcome(`auto-accepted (score ${o.match.score.toFixed(2)})`)
+        } else if (o.kind === 'disambiguate') {
+          setResults(o.candidates)
+          setOutcome(`${o.candidates.length} candidates — tap the right one`)
+        } else {
+          setResults([])
+          setOutcome('no match — nothing in the corpus matched')
+        }
+      })()
     }, 180)
     return () => { alive = false; clearTimeout(timer) }
-  }, [db, query])
+  }, [query])
 
   const corpusLine = useMemo(() => {
-    if (!corpus) return 'Loading corpus…'
-    if (corpus.foods === 0) {
-      return 'Corpus missing — the app bundled without nutrition.db. Run `npm run data:build`.'
-    }
-    return `${corpus.foods.toLocaleString()} foods · ${corpus.portions.toLocaleString()} portion weights · USDA, CC0`
-  }, [corpus])
+    if (healthError != null) return healthError
+    if (health == null) return 'Checking the food server…'
+    const tiers = health.tiers.length > 0 ? health.tiers.join(' + ') : 'no tiers recorded'
+    return `${health.foods.toLocaleString()} foods · ${health.barcodes.toLocaleString()} barcodes · ${tiers} · on your PC`
+  }, [health, healthError])
 
   /**
    * Tapping a result is the whole point of this screen.
@@ -88,27 +101,18 @@ export default function FoodSearch() {
    * the corpus already knows the nutrition, it does not know how much you ate.
    */
   function openPortionSheet(candidate: ScoredCandidate) {
-    if (!db) return
-    void (async () => {
-      const options = await portionOptionsFor(db, candidate.foodId)
-      setPending({ candidate, options })
-    })()
+    const detail = details[candidate.foodId]
+    setPending({ candidate, options: detail == null ? [] : toPortionOptions(detail.portions) })
   }
 
   function confirmPortion(grams: number) {
     const candidate = pending?.candidate
     setPending(null)
     if (!candidate) return
-    void (async () => {
-      const ok = await startSearchLog(candidate.foodId, grams)
-      // The review screen is a modal on the root stack; this screen is too, so
-      // replace rather than push and there is no dead screen underneath.
-      if (ok) {
-        router.replace('/result')
-      } else {
-        Alert.alert('Could not log this food', 'It is no longer available, or its data could not be read. Nothing was logged.')
-      }
-    })()
+    const detail = details[candidate.foodId]
+    const ok = detail == null ? false : startSearchLog(corpusRowFromResolved(detail.food), grams)
+    if (ok) router.replace('/result')
+    else Alert.alert('Could not log this food', 'Its data could not be read from the food server. Nothing was logged.')
   }
 
   return (
@@ -123,7 +127,7 @@ export default function FoodSearch() {
           <Text style={[type.body, { color: theme.textMuted }]}>Done</Text>
         </Pressable>
       </View>
-      <Text style={[type.caption, { color: corpus?.foods === 0 ? theme.safety : theme.textMuted, marginTop: space.xs }]}>
+      <Text style={[type.caption, { color: healthError != null ? theme.safety : theme.textMuted, marginTop: space.xs }]}>
         {corpusLine}
       </Text>
 
@@ -170,11 +174,26 @@ export default function FoodSearch() {
         )
       })}
 
-      {query.trim().length >= 2 && !busy && results.length === 0 && (
+      {query.trim().length >= 2 && !busy && results.length === 0 && !unreachable && (
         <View style={{ marginTop: space.lg }}>
           <Text style={[type.caption, { color: theme.textMuted, lineHeight: 19 }]}>
             Nothing in the corpus matched “{query.trim()}”. That is not a dead end — enter the
             numbers off the packet and log it by hand.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/manual-entry', params: { name: query.trim() } } as never)}
+            style={[styles.manualButton, { borderColor: theme.border }]}
+          >
+            <Text style={[type.bodyStrong, { color: theme.text }]}>Enter it by hand</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {unreachable && !busy && (
+        <View style={{ marginTop: space.lg }}>
+          <Text style={[type.caption, { color: theme.safety, lineHeight: 19 }]}>
+            {UNREACHABLE_COPY} Nothing was searched. You can still enter this food by hand.
           </Text>
           <Pressable
             accessibilityRole="button"

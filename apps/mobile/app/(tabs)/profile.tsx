@@ -224,6 +224,10 @@ export default function Profile() {
         <Row label="Provider & key" value={providerLabel} onPress={() => router.push('/provider-settings' as never)} />
       </Section>
 
+      <Section title="Food database">
+        <Row label="Server address" value="" onPress={() => router.push('/food-server-settings' as never)} />
+      </Section>
+
       <Section title="Apple Health">
         {healthAvail === 'available' ? (
           <>

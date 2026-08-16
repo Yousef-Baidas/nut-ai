@@ -18,7 +18,7 @@ import type { ScanResult } from '@nutai/pipeline'
 
 /** The columns `startSearchLog` reads out of the corpus `foods` table. */
 export interface CorpusFoodRow {
-  id: number
+  id: string | number
   name: string
   energy_kcal: number | null
   protein_g: number | null
@@ -140,6 +140,37 @@ export function bandReasonFor(origin: IngredientRow['origin']): string {
       return 'Estimated from the photo'
     default:
       return 'Estimated'
+  }
+}
+
+/**
+ * The server's `ResolvedFood` in the shape the row builders already speak.
+ *
+ * Two names for one row is a smell, but the alternative is rewriting every
+ * builder and every test that feeds it — and the snake_case shape is the corpus
+ * column names, which is a meaning worth keeping.
+ */
+export function corpusRowFromResolved(food: {
+  foodId: string
+  name: string
+  energyKcal: number | null
+  proteinG: number | null
+  fatG: number | null
+  carbG: number | null
+  fiberG: number | null
+  sugarG: number | null
+  sodiumMg: number | null
+}): CorpusFoodRow {
+  return {
+    id: food.foodId,
+    name: food.name,
+    energy_kcal: food.energyKcal,
+    protein_g: food.proteinG,
+    fat_g: food.fatG,
+    carb_g: food.carbG,
+    fiber_g: food.fiberG,
+    sugar_g: food.sugarG,
+    sodium_mg: food.sodiumMg,
   }
 }
 
