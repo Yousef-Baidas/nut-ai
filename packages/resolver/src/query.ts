@@ -19,6 +19,8 @@
  * USDA-style keys: the query and the corpus share an idiom, and BM25 rewards that.
  */
 
+import { normalizeSearchText } from './search-normalize.js'
+
 /** FTS5 syntax characters that must never reach the matcher unescaped. */
 const FTS_SPECIAL = /["()*:^-]/g
 
@@ -31,9 +33,7 @@ const FTS_SPECIAL = /["()*:^-]/g
  * query, and a stray unbalanced quote is a runtime error rather than zero results.
  */
 export function toMatchExpression(text: string): string | null {
-  const tokens = text
-    .toLowerCase()
-    .replace(FTS_SPECIAL, ' ')
+  const tokens = normalizeSearchText(text.toLowerCase().replace(FTS_SPECIAL, ' '))
     .split(/[\s,]+/)
     .map((t) => t.trim())
     .filter((t) => t.length > 0)
@@ -53,9 +53,12 @@ export function toMatchExpression(text: string): string | null {
  * the measurement counts real misses rather than first-attempt misses.
  */
 export function matchLadder(canonicalFoodKey: string): string[] {
-  const tokens = canonicalFoodKey
-    .toLowerCase()
-    .replace(FTS_SPECIAL, ' ')
+  // The single choke point: every caller of resolveByText — handlePipeline's
+  // resolveByText(deps.db, { canonicalFoodKey }) included — gets the same
+  // fold that build.mjs/build-full.mjs apply when they index food_fts.
+  // Folding is idempotent, so a caller that already folded its query text
+  // (e.g. handleSearch) is unaffected by folding it again here.
+  const tokens = normalizeSearchText(canonicalFoodKey.toLowerCase().replace(FTS_SPECIAL, ' '))
     .split(/[\s,]+/)
     .filter(Boolean)
 

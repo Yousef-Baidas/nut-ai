@@ -64,19 +64,40 @@ export async function handleHealth(db: DbAdapter): Promise<HealthResponse> {
     tiers = tierRows.map((t) => t.tier).filter((t): t is string => t != null)
   }
 
-  // `build-full.mjs` does not (yet) write manifest counts for portions or
-  // barcodes, so these two always take the live-scan path — that is the
-  // fallback rule applied correctly, not an oversight: there is no manifest
-  // row to prefer.
-  const portions = await db.get<{ c: number }>('SELECT COUNT(*) c FROM food_portions')
-  const barcodes = await db.get<{ c: number }>('SELECT COUNT(*) c FROM foods WHERE barcode IS NOT NULL')
+  // Same manifest-first, live-scan-fallback pattern as foods/tiers above.
+  // `build-full.mjs` now writes `portion_count`/`barcode_count` at build time
+  // (and `backfill-portions.mjs` writes them for a resident DB that predates
+  // this); a corpus without those keys (the small dev corpus, a hand-built
+  // test fixture) falls back to a live COUNT(*).
+  const portionCountRow = await db.get<{ value: string }>(
+    "SELECT value FROM build_manifest WHERE key = 'portion_count'",
+  )
+  const barcodeCountRow = await db.get<{ value: string }>(
+    "SELECT value FROM build_manifest WHERE key = 'barcode_count'",
+  )
+
+  let portionCount: number
+  if (portionCountRow != null) {
+    portionCount = Number(portionCountRow.value)
+  } else {
+    const portions = await db.get<{ c: number }>('SELECT COUNT(*) c FROM food_portions')
+    portionCount = portions?.c ?? 0
+  }
+
+  let barcodeCount: number
+  if (barcodeCountRow != null) {
+    barcodeCount = Number(barcodeCountRow.value)
+  } else {
+    const barcodes = await db.get<{ c: number }>('SELECT COUNT(*) c FROM foods WHERE barcode IS NOT NULL')
+    barcodeCount = barcodes?.c ?? 0
+  }
 
   return {
     ok: true,
     schemaVersion: SCHEMA_VERSION,
     foods,
-    portions: portions?.c ?? 0,
-    barcodes: barcodes?.c ?? 0,
+    portions: portionCount,
+    barcodes: barcodeCount,
     builtAt: built?.value ?? null,
     tiers,
   }
@@ -91,9 +112,11 @@ function candidatesOf(outcome: SearchResponse['outcome']): ScoredCandidate[] {
 /**
  * Text search.
  *
- * The query is folded HERE so every client gets Arabic handling for free — the
- * corpus was indexed with the same function at build time, which is the only
- * reason folding works at all.
+ * resolveByText (packages/resolver/src/query.ts matchLadder) now folds the
+ * query itself, so every caller gets the fold whether or not it folds first —
+ * that's the single choke point C1/C2 fixed. Folding here too is redundant
+ * (normalizeSearchText is idempotent) but left in place for clarity at this
+ * call site.
  */
 export async function handleSearch(db: DbAdapter, q: string, grams: number | null): Promise<SearchResponse> {
   const result = await resolveByText(db, {
