@@ -1,7 +1,7 @@
 /**
  * Goals — BMR, TDEE, targets, macro splits, weight-trend smoothing, adaptive TDEE.
  *
- * SPEC-product.md goals math, steps 1-8. Pure arithmetic, unit-testable in Node.
+ * docs/inherited-design.md IV goals math, steps 1-8. Pure arithmetic, unit-testable in Node.
  *
  * Two principles run through all of it:
  *

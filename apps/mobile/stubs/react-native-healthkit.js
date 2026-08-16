@@ -49,8 +49,11 @@
  * caller that reaches for the module without checking the marker first. Nothing
  * currently does.
  *
- * TO GO BACK TO A REAL BUILD: drop the alias in metro.config.js. This file is
- * inert unless that alias points at it, and nothing imports it directly.
+ * TO GO BACK TO A REAL BUILD, three steps — the alias alone is not enough,
+ * because the real package is uninstalled (see app.config.ts): reinstall
+ * @kingstinct/react-native-healthkit, restore its config-plugin block in
+ * app.config.ts, then drop the alias in metro.config.js. This file is inert
+ * unless that alias points at it, and nothing imports it directly.
  */
 
 module.exports = {

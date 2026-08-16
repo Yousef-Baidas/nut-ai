@@ -10,7 +10,8 @@ import { makeFoodDb, recomputeAfterEdit, runPipeline, validatePayload } from './
 /**
  * END-TO-END: a model payload becomes a logged meal.
  *
- * Every one of the ten packages participates. The database is real SQLite with a
+ * Nine of the eleven packages participate (@nutai/goals and @nutai/prompt sit
+ * outside the scan pipeline). The database is real SQLite with a
  * real FTS5 index. Nothing is mocked except the model call itself, which is the
  * one stage this pipeline deliberately does not own.
  */

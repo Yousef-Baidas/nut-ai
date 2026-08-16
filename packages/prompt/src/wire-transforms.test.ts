@@ -40,7 +40,7 @@ const BOUNDS = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'max
 
 describe('the base wire schema', () => {
   it('is generated from the Zod source of truth and describes the payload', () => {
-    const props = (VISION_WIRE_SCHEMA as Node).properties as Node
+    const props = (VISION_WIRE_SCHEMA as Node)['properties'] as Node
     expect(props).toBeTruthy()
     expect(Object.keys(props)).toEqual(
       expect.arrayContaining(['schema_version', 'is_food', 'items', 'meal_overall']),
@@ -57,11 +57,11 @@ describe('openAiWireSchema (strict mode)', () => {
   const nodes = collectNodes(s)
 
   it('marks every object node additionalProperties:false with ALL keys required', () => {
-    const objects = nodes.filter((n) => n.type === 'object' && isObj(n.properties))
+    const objects = nodes.filter((n) => n['type'] === 'object' && isObj(n['properties']))
     expect(objects.length).toBeGreaterThan(3)
     for (const o of objects) {
-      expect(o.additionalProperties).toBe(false)
-      expect((o.required as string[]).sort()).toEqual(Object.keys(o.properties as Node).sort())
+      expect(o['additionalProperties']).toBe(false)
+      expect((o['required'] as string[]).sort()).toEqual(Object.keys(o['properties'] as Node).sort())
     }
   })
 
@@ -87,7 +87,7 @@ describe('geminiWireSchema (OpenAPI subset)', () => {
 
   it('never uses a type array containing null — nullability is `nullable: true`', () => {
     for (const n of nodes) {
-      if (Array.isArray(n.type)) expect(n.type).not.toContain('null')
+      if (Array.isArray(n['type'])) expect(n['type']).not.toContain('null')
     }
   })
 
@@ -102,6 +102,9 @@ describe('geminiWireSchema (OpenAPI subset)', () => {
 describe('web lookup requests', () => {
   const input = { model: 'm', itemName: 'Spicy Chicken Sandwich', brand: 'Chick-fil-A' }
 
+  /** Only the `tools` shape these tests inspect. */
+  type WebLookupBody = { tools: Array<{ type?: string; google_search?: unknown }> }
+
   it('demands transcription with a source, never estimation', () => {
     const p = buildWebLookupInstruction(input)
     expect(p).toMatch(/TRANSCRIBE/)
@@ -112,7 +115,7 @@ describe('web lookup requests', () => {
   it('anthropic: server-side web_search tool, both credential shapes', () => {
     const k = buildAnthropicWebLookupRequest(input, { kind: 'api_key', value: 'sk' })
     const o = buildAnthropicWebLookupRequest(input, { kind: 'oauth', value: 'tok' })
-    expect((k.body as any).tools[0].type).toBe('web_search_20250305')
+    expect((k.body as WebLookupBody).tools[0]!.type).toBe('web_search_20250305')
     expect(k.headers['x-api-key']).toBe('sk')
     expect(o.headers['anthropic-beta']).toBe('oauth-2025-04-20')
   })
@@ -120,12 +123,12 @@ describe('web lookup requests', () => {
   it('openai: uses the Responses API, where web_search lives', () => {
     const r = buildOpenAIWebLookupRequest(input, 'sk')
     expect(r.url).toContain('/v1/responses')
-    expect((r.body as any).tools[0].type).toBe('web_search')
+    expect((r.body as WebLookupBody).tools[0]!.type).toBe('web_search')
   })
 
   it('gemini: google_search tool with NO responseSchema — they do not compose', () => {
     const r = buildGeminiWebLookupRequest(input, 'k')
-    expect((r.body as any).tools[0]).toHaveProperty('google_search')
+    expect((r.body as WebLookupBody).tools[0]).toHaveProperty('google_search')
     expect(JSON.stringify(r.body)).not.toContain('responseSchema')
   })
 })

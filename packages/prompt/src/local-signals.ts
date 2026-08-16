@@ -1,7 +1,7 @@
 /**
  * Stage [2] LOCAL SIGNALS — the user-message context block.
  *
- * SPEC-accuracy-engine.md §1.1 stage 2 and §2.3.
+ * docs/inherited-design.md I §1.1 stage 2 and §2.3.
  *
  * THE CRITICAL RULE: this block is a LABELED TEXT BLOCK in the user message. It is
  * never merged into the cached system-prompt prefix. Two independent reasons:

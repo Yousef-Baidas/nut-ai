@@ -1,15 +1,16 @@
 /**
  * The stored domain model.
  *
- * SPEC-accuracy-engine.md §6.1. One invariant pays for the entire product:
+ * docs/inherited-design.md I §6.1. One invariant pays for the entire product:
  *
  *   Every ingredient row, regardless of origin, is stored as
  *   (food_reference, grams, per-100g nutrient snapshot) — NEVER as a bare
  *   calorie or macro number.
  *
  * Everything good downstream falls out of that:
- *   - Corrections are free, instant, and offline forever, on BOTH inference
- *     paths, because a correction is arithmetic over values already on device.
+ *   - Corrections are free, instant, and offline forever — whether the scan
+ *     came from a cloud model or the deterministic local pipeline — because a
+ *     correction is arithmetic over values already on device.
  *   - Historical logs never silently change when the nutrition database updates,
  *     because the snapshot was copied at add time and is immutable thereafter.
  *   - Saved meals survive any database update for the same reason.

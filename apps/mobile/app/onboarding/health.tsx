@@ -7,7 +7,7 @@ import { nextRoute, stepIndex, TOTAL_STEPS } from '../../src/onboarding/flow'
 import { setAnswer } from '../../src/onboarding/store'
 import { Icon } from '../../src/components/Icon'
 import { useTheme } from '../../src/theme/ThemeProvider'
-import { radius, space, type } from '../../src/theme/tokens'
+import { palette, radius, space, type } from '../../src/theme/tokens'
 
 /**
  * Apple Health — informational only.
@@ -63,7 +63,7 @@ export default function HealthScreen() {
         <View style={[styles.halo, { backgroundColor: theme.uncertainBg }]}>
           <View style={styles.row}>
             <View style={[styles.tile, { backgroundColor: theme.bgElevated, borderColor: theme.border }]}>
-              <Icon name="heart" size={34} color="#E8615A" />
+              <Icon name="heart" size={34} color={palette.chartWithoutPlan} />
             </View>
             <Icon name="chevron" size={20} color={theme.textMuted} />
             <View style={[styles.tile, { backgroundColor: theme.text }]}>

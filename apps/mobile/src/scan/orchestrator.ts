@@ -21,7 +21,7 @@ import { recomputeAfterEdit, validatePayload, type ScanResult } from '@nutai/pip
 import { UNREACHABLE_COPY, lookupBarcode, runRemotePipeline } from '../data/food-server'
 import { setting } from '../data/repo'
 import { loadCredential, type StoredCredential } from '../inference/credentials'
-import { runLabelScan, runReceiptScan, runScanWithFallback, runWebLookup } from '../inference/pathA/client'
+import { runLabelScan, runReceiptScan, runScanWithFallback, runWebLookup } from '../inference/cloud/client'
 import { applyWebOption, getPhase, setPhase, setWebLookup } from './store'
 import {
   bandReasonFor,

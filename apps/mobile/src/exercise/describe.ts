@@ -2,7 +2,7 @@ import { ExerciseEstimateZ } from '@nutai/core-schema'
 import { cheapestModel, type ProviderId } from '@nutai/prompt'
 import { setting } from '../data/repo'
 import { loadCredential } from '../inference/credentials'
-import { runExerciseEstimate } from '../inference/pathA/client'
+import { runExerciseEstimate } from '../inference/cloud/client'
 import { latestWeightKg, saveEntry } from './entries'
 
 /** Either a saved entry, or a user-facing reason it wasn't. */

@@ -1,6 +1,6 @@
 import type { DbAdapter } from '@nutai/db-adapter'
 import { normalizeGtin } from './gtin.js'
-import { matchLadder } from './query.js'
+import { matchLadder, toTrigramExpression } from './query.js'
 import {
   type Candidate,
   type ResolutionOutcome,
@@ -17,7 +17,7 @@ export * from './search-normalize.js'
 /**
  * Nutrition resolution — food name to database row.
  *
- * SPEC-accuracy-engine.md §5. The stage between "the model says this is grilled
+ * docs/inherited-design.md I §5. The stage between "the model says this is grilled
  * chicken breast" and "165 kcal per 100 g, from FDC row 171077".
  *
  * Everything here is offline. No network call has ever been part of this stage,
@@ -58,6 +58,34 @@ FROM food_fts
 JOIN foods f ON f.id = food_fts.rowid
 LEFT JOIN brands b ON b.id = f.brand_id
 WHERE food_fts MATCH ?
+ORDER BY rawBm25
+LIMIT 50
+`
+
+/**
+ * The typo-tolerant last resort (issue #11). Same candidate shape as
+ * CANDIDATE_SQL, but matched against the trigram shadow index — bm25 over
+ * OR-of-trigrams ranks by shared-gram count, so 'chiken brest' surfaces
+ * 'Chicken … breast …' rows the word-level ladder can never reach. The
+ * single-column index means bm25() takes no per-column weights here; the
+ * six-signal scorer normalizes bm25 within the candidate set anyway.
+ */
+const TRIGRAM_CANDIDATE_SQL = `
+SELECT f.id            AS foodId,
+       f.name          AS name,
+       b.canonical_name AS brand,
+       f.category      AS category,
+       f.prep_facet    AS prepFacet,
+       f.basis_confidence AS basisConfidence,
+       f.serving_size_g   AS servingSizeG,
+       f.energy_kcal      AS energyKcal,
+       f.popularity_rank  AS popularityRank,
+       f.completeness_score AS completenessScore,
+       bm25(food_fts_trigram) AS rawBm25
+FROM food_fts_trigram
+JOIN foods f ON f.id = food_fts_trigram.rowid
+LEFT JOIN brands b ON b.id = f.brand_id
+WHERE food_fts_trigram MATCH ?
 ORDER BY rawBm25
 LIMIT 50
 `
@@ -114,7 +142,11 @@ export async function loadFood(db: DbAdapter, foodId: string): Promise<ResolvedF
 
 export interface ResolveResult {
   outcome: ResolutionOutcome
-  /** How far down the broadening ladder we had to go. 0 = exact first try. */
+  /**
+   * How far down the broadening ladder we had to go. 0 = exact first try;
+   * `matchLadder(...).length` = the word-level ladder missed entirely and the
+   * trigram shadow index made the rescue.
+   */
   ladderStep: number
   /** True when every rung returned nothing — this is what the 5% trigger counts. */
   zeroHit: boolean
@@ -152,6 +184,26 @@ export async function resolveByText(
       ctx,
     )
     return { outcome: decideOutcome(scored), ladderStep: step, zeroHit: false }
+  }
+
+  // Every word-level rung missed. Before declaring a zero-hit, try the trigram
+  // shadow index — a typo shares most of its grams with the word it meant.
+  const trigramExpr = toTrigramExpression(ctx.canonicalFoodKey)
+  if (trigramExpr) {
+    let rows: Candidate[] = []
+    try {
+      rows = await db.all<Candidate>(TRIGRAM_CANDIDATE_SQL, [trigramExpr])
+    } catch {
+      // A corpus built without the shadow index (or a hostile expression) must
+      // degrade to the honest miss below, not throw at someone typing lunch.
+    }
+    if (rows.length > 0) {
+      const scored = scoreCandidates(
+        rows.map((r) => ({ ...r, foodId: String(r.foodId) })),
+        ctx,
+      )
+      return { outcome: decideOutcome(scored), ladderStep: ladder.length, zeroHit: false }
+    }
   }
 
   return { outcome: { kind: 'miss' }, ladderStep: ladder.length, zeroHit: true }

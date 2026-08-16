@@ -28,7 +28,7 @@ import { toDisplayTotalsForMeal, type DisplayTotals } from '@nutai/totals'
 /**
  * The pipeline — stages 4 through 9, wired.
  *
- * SPEC-accuracy-engine.md §1.1. This module is the seam where every other package
+ * docs/inherited-design.md I §1.1. This module is the seam where every other package
  * becomes one system, and it is deliberately PURE: it takes a VisionPayload and a
  * database handle and returns a ScanResult. It performs no network I/O, holds no
  * credentials, and touches no platform API.
@@ -47,8 +47,8 @@ import { toDisplayTotalsForMeal, type DisplayTotals } from '@nutai/totals'
  *   [9] RESULT + REPAIR    questions and pre-answered chips
  *
  * NOTHING AFTER STAGE 3 BRANCHES ON `path` except to render a badge and widen a
- * band. That is the entire point of the architecture: Path A and Path B converge
- * on one VisionPayload and share every line of code below it.
+ * band. That is the entire point of the architecture: the cloud and local paths
+ * converge on one VisionPayload and share every line of code below it.
  */
 
 export interface PipelineDeps {

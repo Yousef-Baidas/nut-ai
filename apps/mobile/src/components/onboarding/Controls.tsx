@@ -14,7 +14,7 @@ import {
 import { Icon, type IconName } from '../Icon'
 import { DONE_ACCESSORY_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
 import { useTheme } from '../../theme/ThemeProvider'
-import { MIN_TAP_TARGET, radius, space, type } from '../../theme/tokens'
+import { MIN_TAP_TARGET, palette, radius, space, type } from '../../theme/tokens'
 
 /**
  * The three input controls the onboarding flow needs, matched to the reference
@@ -56,7 +56,7 @@ export function OptionCard({
         },
       ]}
     >
-      <View style={[styles.glyphCircle, { backgroundColor: theme.isDark ? theme.bgSunken : '#F3F2F8' }]}>
+      <View style={[styles.glyphCircle, { backgroundColor: theme.isDark ? theme.bgSunken : palette.onboardingGlyphBg }]}>
         <Icon name={glyph} size={24} color={theme.text} />
       </View>
 
@@ -87,7 +87,7 @@ export function Segmented<T extends string>({
 }) {
   const theme = useTheme()
   return (
-    <View style={[styles.segmentWrap, { backgroundColor: theme.isDark ? theme.bgSunken : '#F0F0F3' }]}>
+    <View style={[styles.segmentWrap, { backgroundColor: theme.isDark ? theme.bgSunken : palette.onboardingSegmentBg }]}>
       {options.map((o) => {
         const active = o.value === value
         return (
@@ -207,7 +207,7 @@ export function RulerPicker({
     [max, min, onChange, step],
   )
 
-  const tickColor = theme.isDark ? theme.textFaint : '#1A1A1F'
+  const tickColor = theme.isDark ? theme.textFaint : palette.onboardingTick
 
   // The ruler artwork depends only on range and colour, never on the value. Held
   // in a memo so a scroll frame reconciles one cached element instead of
@@ -450,7 +450,7 @@ export function WheelHighlight({ children }: { children: React.ReactNode }) {
         pointerEvents="none"
         style={[
           styles.wheelBand,
-          { backgroundColor: theme.isDark ? theme.bgSunken : '#F2F2F5' },
+          { backgroundColor: theme.isDark ? theme.bgSunken : palette.onboardingWheelBand },
         ]}
       />
       <View style={{ flexDirection: 'row', justifyContent: 'center' }}>{children}</View>
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     minWidth: 112,
   },
   segmentActive: {
-    shadowColor: '#000',
+    shadowColor: palette.black,
     shadowOpacity: 0.08,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },

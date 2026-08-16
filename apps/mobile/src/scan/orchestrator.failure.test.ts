@@ -43,7 +43,7 @@ vi.mock('../inference/credentials', () => ({
   },
 }))
 
-vi.mock('../inference/pathA/client', () => ({
+vi.mock('../inference/cloud/client', () => ({
   runLabelScan: async () => { throw new Error('should not be reached') },
   runReceiptScan: async () => { throw new Error('should not be reached') },
   runScanWithFallback: async () => { throw new Error('should not be reached') },

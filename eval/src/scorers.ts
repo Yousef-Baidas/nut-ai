@@ -1,7 +1,7 @@
 /**
  * Accuracy scorers.
  *
- * SPEC-accuracy-engine.md §8.4 / PLAN.md §8.4.
+ * docs/inherited-design.md I §8.4 / II §8.4.
  *
  * Every metric here exists because a simpler one would hide something:
  *

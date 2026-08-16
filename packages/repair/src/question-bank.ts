@@ -3,7 +3,7 @@ import type { Item, UncertaintyReason } from '@nutai/core-schema'
 /**
  * The ranked question bank.
  *
- * SPEC-accuracy-engine.md §8.4. Ordered by (a) swing magnitude, (b) how invisible
+ * docs/inherited-design.md I §8.4. Ordered by (a) swing magnitude, (b) how invisible
  * the ambiguity is in a photo, and (c) how cheaply and CERTAINLY asking resolves
  * it.
  *
@@ -245,11 +245,12 @@ export interface StructuralUncertainty {
 /**
  * Derive uncertainty from the FOOD CATEGORY alone, with no model self-report.
  *
- * SPEC-accuracy-engine.md §7.3. This module is what makes Path B possible at all —
- * an on-device classifier cannot emit stated_assumptions, clarifying_questions or
- * uncertainty_reason, so on Path B this is the SOLE source of those fields.
+ * docs/inherited-design.md I §7.3. This module is what makes the local (no-model)
+ * path possible at all — nothing on that path can emit stated_assumptions,
+ * clarifying_questions or uncertainty_reason, so there this is the SOLE source
+ * of those fields.
  *
- * On Path A it is a FLOOR, applied as a UNION and never a replacement: if the model
+ * On the cloud path it is a FLOOR, applied as a UNION and never a replacement: if the model
  * failed to flag oil on a stir-fry, we flag it anyway. The model not mentioning
  * something is not evidence that it is not there.
  */

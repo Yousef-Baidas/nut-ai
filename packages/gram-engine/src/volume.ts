@@ -3,7 +3,7 @@ import type { Container, FoodForm } from '@nutai/core-schema'
 /**
  * Food-form volume heuristics.
  *
- * SPEC-accuracy-engine.md §4.2. A food-form classifier gates which formula fires.
+ * docs/inherited-design.md I §4.2. A food-form classifier gates which formula fires.
  * No universal formula exists, and pretending otherwise is how a pipeline gets
  * confidently wrong on leafy greens (0.06 g/mL) using a constant tuned for
  * casseroles (1.04 g/mL).

@@ -40,7 +40,7 @@ import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 /**
  * The result screen.
  *
- * SPEC-accuracy-engine.md §8.2, and ruling 2 of PLAN.md §3.3.
+ * docs/inherited-design.md I §8.2, and ruling 2 of II §3.3.
  *
  * ONE primary action: `Log it`. There is no `Fix Results` mode.
  *

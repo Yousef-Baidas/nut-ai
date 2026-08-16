@@ -37,9 +37,23 @@ function fail(res: ServerResponse, status: number, error: string, message: strin
   send(res, status, body)
 }
 
+/**
+ * A /pipeline payload is one VisionPayload — kilobytes. The cap exists so a
+ * runaway client (or anything else that finds the tailnet socket) cannot make
+ * the server buffer an arbitrarily large body into memory.
+ */
+const MAX_BODY_BYTES = 1024 * 1024
+
+export class BodyTooLargeError extends Error {}
+
 async function readBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
-  for await (const chunk of req) chunks.push(chunk as Buffer)
+  let total = 0
+  for await (const chunk of req) {
+    total += (chunk as Buffer).length
+    if (total > MAX_BODY_BYTES) throw new BodyTooLargeError(`body exceeds ${MAX_BODY_BYTES} bytes`)
+    chunks.push(chunk as Buffer)
+  }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
@@ -115,7 +129,11 @@ export function createRequestListener(db: DbAdapter) {
           let body: PipelineRequest
           try {
             body = (await readBody(req)) as PipelineRequest
-          } catch {
+          } catch (err) {
+            if (err instanceof BodyTooLargeError) {
+              fail(res, 413, 'body_too_large', `the request body may not exceed ${MAX_BODY_BYTES} bytes`)
+              return
+            }
             fail(res, 400, 'bad_body', 'the request body was not JSON')
             return
           }
@@ -145,7 +163,11 @@ export function createRequestListener(db: DbAdapter) {
 
         fail(res, 404, 'no_route', `${req.method ?? 'GET'} ${url.pathname} is not a route`)
       } catch (err) {
-        fail(res, 500, 'server_error', err instanceof Error ? err.message : 'unknown failure')
+        // The detail goes to the journal, not the wire: tailnet or not, an
+        // internal error string is the server's business, and the client's
+        // four-outcome model only needs to know the server answered unhappily.
+        console.error('food-server request failed:', err)
+        fail(res, 500, 'server_error', 'internal error — see the server journal')
       }
     })()
   }

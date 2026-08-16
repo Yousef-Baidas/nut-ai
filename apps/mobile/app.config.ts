@@ -1,4 +1,5 @@
 import type { ExpoConfig } from 'expo/config'
+import { palette } from './src/theme/tokens'
 
 /**
  * App configuration.
@@ -46,7 +47,7 @@ const config: ExpoConfig = {
 
   android: {
     package: BUNDLE_ID,
-    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#0B0B0F' },
+    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: palette.ink900 },
     permissions: ['android.permission.CAMERA'],
     // No Google Play Services dependency: all notifications are local, there is
     // no push token and no FCM. Preserving that keeps F-Droid viable, which

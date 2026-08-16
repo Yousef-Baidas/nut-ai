@@ -1,7 +1,7 @@
 /**
  * Query construction for FTS5.
  *
- * SPEC-accuracy-engine.md §5.4. Two things this module deliberately does NOT do,
+ * docs/inherited-design.md I §5.4. Two things this module deliberately does NOT do,
  * because FTS5 already does them better:
  *
  *   PLURALS AND INFLECTION -> the porter tokenizer, not app code. It is applied
@@ -84,8 +84,35 @@ export function matchLadder(canonicalFoodKey: string): string[] {
   return ladder
 }
 
-/** Trigram query for the typo-tolerant shadow index. Needs >= 3 characters. */
+/**
+ * Trigram query for the typo-tolerant shadow index (issue #11).
+ *
+ * OR-of-trigrams, not a quoted phrase: a phrase would demand the typo appear
+ * verbatim in a corpus name, which is exactly what a typo never does. ORing
+ * the query's trigrams lets bm25 rank rows by how many grams they share —
+ * 'chiken' still shares "chi" and "ken" with 'chicken' — which is the whole
+ * typo-tolerance mechanism.
+ *
+ * Folded through `normalizeSearchText` because both build scripts index
+ * `food_fts_trigram` with the folded name; an unfolded query would compare
+ * raw trigrams against folded ones. Trigrams are drawn per token (never
+ * across a word boundary), deduped, and capped so a pathological query
+ * cannot balloon into a thousand-term MATCH.
+ */
+const MAX_TRIGRAMS = 64
+
 export function toTrigramExpression(text: string): string | null {
-  const cleaned = text.toLowerCase().replace(FTS_SPECIAL, ' ').trim()
-  return cleaned.length >= 3 ? `"${cleaned}"` : null
+  const tokens = normalizeSearchText(text.toLowerCase().replace(FTS_SPECIAL, ' '))
+    .split(/[\s,]+/)
+    .filter((t) => t.length >= 3)
+
+  const grams = new Set<string>()
+  for (const token of tokens) {
+    for (let i = 0; i + 3 <= token.length && grams.size < MAX_TRIGRAMS; i++) {
+      grams.add(token.slice(i, i + 3))
+    }
+  }
+
+  if (grams.size === 0) return null
+  return [...grams].map((g) => `"${g}"`).join(' OR ')
 }

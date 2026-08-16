@@ -15,6 +15,7 @@ import {
   resolveByText,
   scoreCandidates,
   toMatchExpression,
+  toTrigramExpression,
   upcEToUpcA,
   type Candidate,
   type ScoringContext,
@@ -119,6 +120,33 @@ const ctx: ScoringContext = {
   modelCategory: 'poultry',
   estimatedGrams: 170,
 }
+
+describe('trigram query construction (issue #11)', () => {
+  it('emits OR-of-trigrams so a typo still shares grams with the real name', () => {
+    // 'chiken' and the indexed 'chicken' share "chi" and "ken" — the OR query
+    // is what lets bm25 rank by shared-trigram count. A single quoted phrase
+    // would demand the typo appear verbatim in the corpus, which it never does.
+    expect(toTrigramExpression('chiken')).toBe('"chi" OR "hik" OR "ike" OR "ken"')
+  })
+
+  it('folds the query the same way the trigram index was built', () => {
+    // Both build scripts insert normalizeSearchText(name) into food_fts_trigram,
+    // so an unfolded query would compare raw trigrams against folded ones.
+    // 'BREEST' folds to 'brist'.
+    expect(toTrigramExpression('BREEST')).toBe('"bri" OR "ris" OR "ist"')
+  })
+
+  it('dedupes repeated trigrams across tokens', () => {
+    // Two identical tokens contribute one set of grams, not two.
+    expect(toTrigramExpression('banana banana')).toBe('"ban" OR "ana" OR "nan"')
+  })
+
+  it('returns null when nothing reaches three characters', () => {
+    expect(toTrigramExpression('ab')).toBeNull()
+    expect(toTrigramExpression('***')).toBeNull()
+    expect(toTrigramExpression('')).toBeNull()
+  })
+})
 
 describe('scoring', () => {
   it('treats an untagged prep facet as unknown, not as a conflict', () => {
@@ -234,6 +262,12 @@ describe('resolution against a real corpus', () => {
       await db.run('INSERT INTO food_fts (rowid, name, brand, synonyms) VALUES (?,?,?,?)', [
         id, name, '', '',
       ])
+      // Both build scripts populate the trigram shadow index with the FOLDED
+      // name — mirror that here so the typo-fallback tests run against the
+      // same shape the real corpus has.
+      await db.run('INSERT INTO food_fts_trigram (rowid, name) VALUES (?,?)', [
+        id, normalizeSearchText(name),
+      ])
     }
   })
 
@@ -267,6 +301,25 @@ describe('resolution against a real corpus', () => {
     })
     expect(r.zeroHit).toBe(false)
     expect(r.ladderStep).toBeGreaterThan(0)
+  })
+
+  it('rescues a typo through the trigram shadow index when every FTS rung misses (issue #11)', async () => {
+    // 'chiken brest': neither token exists in the corpus, so the exact rung,
+    // every drop-a-modifier rung, and the OR rung all return nothing. The
+    // trigram rung shares "chi"/"ken"/"bre" with 'chicken … breast …' and
+    // surfaces the real rows instead of a miss.
+    const r = await resolveByText(db, {
+      canonicalFoodKey: 'chiken brest',
+      observedBrand: null, prepFacet: null, modelCategory: null, estimatedGrams: 170,
+    })
+    expect(r.zeroHit).toBe(false)
+    // The rescue is recorded one step past the FTS ladder, so the zero-hit
+    // instrumentation can tell "trigram saved it" from "first rung hit".
+    expect(r.ladderStep).toBe(matchLadder('chiken brest').length)
+    const ids = r.outcome.kind === 'auto_accept'
+      ? [r.outcome.match.foodId]
+      : r.outcome.kind === 'disambiguate' ? r.outcome.candidates.map((c) => c.foodId) : []
+    expect(ids.map(String)).toContain('1')
   })
 
   it('reports an honest zero-hit for a food that is genuinely absent', async () => {

@@ -7,7 +7,7 @@ import { radius, space, type } from '../theme/tokens'
 /**
  * The confidence chip.
  *
- * SPEC-ui.md §0.2 rule 1: a number the app is unsure about must LOOK unsure,
+ * docs/inherited-design.md III §0.2 rule 1: a number the app is unsure about must LOOK unsure,
  * everywhere it appears. This is the product's whole reason to exist, and it is
  * exactly what the incumbent's result screen is confirmed never to show — "no
  * confidence score, error range, or uncertainty indicator of any kind", converged

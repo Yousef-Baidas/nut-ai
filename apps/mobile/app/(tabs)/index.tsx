@@ -23,7 +23,7 @@ import {
   type DayTotals,
 } from '../../src/data/repo'
 import { useTheme } from '../../src/theme/ThemeProvider'
-import { radius, space, type } from '../../src/theme/tokens'
+import { palette, radius, space, type } from '../../src/theme/tokens'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -144,9 +144,9 @@ export default function Home() {
         {/* Page 2 — micros and the health score */}
         <View style={{ width, paddingHorizontal: space.lg }}>
           <View style={styles.macroRow}>
-            <MacroCard label="Fiber" icon="fiber" eaten={0} target={30} color="#8B7BD8" unit="g" />
-            <MacroCard label="Sugar" icon="sugar" eaten={0} target={50} color="#E88BA8" unit="g" />
-            <MacroCard label="Sodium" icon="sodium" eaten={0} target={2300} color="#D6A648" unit="mg" />
+            <MacroCard label="Fiber" icon="fiber" eaten={0} target={30} color={palette.fiber} unit="g" />
+            <MacroCard label="Sugar" icon="sugar" eaten={0} target={50} color={palette.sugar} unit="g" />
+            <MacroCard label="Sodium" icon="sodium" eaten={0} target={2300} color={palette.sodium} unit="mg" />
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.bgElevated, borderColor: theme.border }]}>

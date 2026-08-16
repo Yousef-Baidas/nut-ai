@@ -69,6 +69,12 @@ export default function FoodSearch() {
     setBusy(true)
     const timer = setTimeout(() => {
       void (async () => {
+        // The moment the request fires, the rows on screen belong to the OLD
+        // query — leaving them tappable under the spinner invites logging the
+        // wrong food. Clearing here (post-debounce) rather than per keystroke
+        // keeps typing flicker-free.
+        setResults([])
+        setDetails({})
         const r = await searchFoods(query.trim(), 150)
         if (!alive) return
         // The spinner is cleared on EVERY branch, including the failures. A

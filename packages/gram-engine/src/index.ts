@@ -20,7 +20,7 @@ export * from './yields.js'
 /**
  * The gram engine.
  *
- * SPEC-accuracy-engine.md §4. Pure TypeScript over bundled tables. Same code, both
+ * docs/inherited-design.md I §4. Pure TypeScript over bundled tables. Same code, both
  * inference paths. Under 10 ms.
  *
  * This is where the accuracy actually lives. The model told us WHAT is on the
@@ -199,7 +199,7 @@ export function estimateGrams(input: EstimateGramsInput): GramResult {
     }
   }
 
-  out = applyYieldFactor(out, item, resolved)
+  out = applyYieldFactor(out, item)
   out = applyOilCorrection(out, item)
   out = clampGrams(out)
 
@@ -215,11 +215,7 @@ export function estimateGrams(input: EstimateGramsInput): GramResult {
  * with its own per-100g values. It matters when a recipe or user log is
  * raw-denominated, or when the only matched row is raw-basis.
  */
-export function applyYieldFactor(
-  estimate: GramEstimate,
-  item: Item,
-  _resolved: ResolvedRow | null,
-): GramEstimate {
+export function applyYieldFactor(estimate: GramEstimate, item: Item): GramEstimate {
   if (item.weight_basis !== 'raw') return estimate
   const method = methodFromCues(item.cooking_method_cues)
   const entry = lookupYield(item.canonical_food_key, method)

@@ -4,7 +4,7 @@ import type { IngredientRow, LoggedMeal } from '@nutai/core-schema'
 import { recomputeTotals, rowTotals, toDisplayTotals } from './index.js'
 
 /**
- * Property test 1 of 3 (SPEC-accuracy-engine.md §8.2 / PLAN.md §8.2):
+ * Property test 1 of 3 (docs/inherited-design.md I §8.2 / II §8.2):
  *
  *   For ANY ingredient list, after ANY sequence of add / remove / edit-grams /
  *   set-fraction operations, the displayed total equals

@@ -3,7 +3,7 @@ import type { Item, Macros, VisionPayload } from '@nutai/core-schema'
 /**
  * The deterministic sanity clamp.
  *
- * SPEC-accuracy-engine.md §3.4. **Always on. Every scan. Both inference paths.
+ * docs/inherited-design.md I §3.4. **Always on. Every scan. Both inference paths.
  * Non-LLM. Near-zero cost. Never skippable.**
  *
  * This is the direct countermeasure to the most embarrassing documented failure in
@@ -165,7 +165,7 @@ export function clamp(payload: VisionPayload): ClampResult {
 
 /**
  * Flags that arm the optional LLM verifier pass when the user has enabled it
- * (SPEC-accuracy-engine.md §3.8). Deliberately narrow: these two indicate the
+ * (docs/inherited-design.md I §3.8). Deliberately narrow: these two indicate the
  * model's output is not merely imprecise but internally incoherent.
  */
 export function armsVerifierPass(flags: readonly ClampFlag[]): boolean {

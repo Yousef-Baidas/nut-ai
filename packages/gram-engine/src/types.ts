@@ -3,7 +3,7 @@ import type { GramPathway } from '@nutai/core-schema'
 /**
  * Shared types for the gram engine.
  *
- * SPEC-accuracy-engine.md §4. The whole justification in one number: Gemini 2.5
+ * docs/inherited-design.md I §4. The whole justification in one number: Gemini 2.5
  * Flash's carbohydrate MAPE moved 56.6% (no weight info) -> 39.5% (predicted
  * weight) -> 20.2% (ground-truth weight). Knowing the mass collapses error by
  * roughly two thirds — a larger lever than any model upgrade, and it is realized

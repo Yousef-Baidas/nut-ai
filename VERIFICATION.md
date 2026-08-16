@@ -17,10 +17,16 @@ measured against upstream before this fork downgraded to Expo SDK 54 and stubbed
 HealthKit (`9111415`). Two gates hold, two moved, and two fail. Nothing was
 repaired to make them pass — this is a measurement.
 
-**Neither reproduce command runs to completion.** `npm run check` chains with
-`&&` and starts with `npm run lint`, which exits 2 because no `eslint.config.js`
-exists. `npm run data:build` exits 1 because it needs a USDA FDC dataset that is
-not in the repository. Run the gates individually.
+**One reproduce command still doesn't run to completion.** `npm run data:build`
+exits 1 because it needs a USDA FDC dataset that is not in the repository. Run
+the gates individually.
+
+**Lint, added since this snapshot (issue #10).** `eslint.config.mjs` is now
+tracked at the repo root. It enforces a typescript-eslint recommended baseline
+across the workspace, plus a hex-colour ban in `apps/mobile/**` (outside
+`src/theme/tokens.ts`) so a hardcoded colour can't silently skip dark mode or
+contrast checking. `npx eslint . --max-warnings=0` passes clean as of
+2026-08-16 — the Lint row below records both dates.
 
 | Gate | Command | Originally | Measured 2026-08-11 |
 |---|---|---|---|
@@ -30,7 +36,7 @@ not in the repository. Run the gates individually.
 | Node-purity gate | `node scripts/check-node-purity.mjs` | **11/11 packages** React-Native-free | ✅ **11/11**, unchanged |
 | Corpus golden queries | `npm run data:verify` | **26/26 passed**, corpus accepted | ✅ **26/26**, unchanged |
 | iOS bundle | `expo export --platform ios` | **1,597 modules**, 3.7 MB | ⚠️ **1,685 modules**, 4.94 MB |
-| Lint | `npm run lint` | *(not listed)* | ❌ no ESLint config |
+| Lint | `npm run lint` | *(not listed)* | ❌ no ESLint config (2026-08-11) → ✅ `eslint.config.mjs` added, clean (2026-08-16) |
 | Corpus build | `npm run data:build` | *(not listed)* | ❌ dataset not in repo |
 
 **Tests moved up, not down.** 341 in 24 files, including `eval/src/scorers.test.ts`

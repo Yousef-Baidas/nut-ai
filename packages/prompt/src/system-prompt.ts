@@ -1,7 +1,7 @@
 /**
  * The system prompt, shipped verbatim.
  *
- * SPEC-accuracy-engine.md §2.1. `<prompt_version>` lives INSIDE the prompt body,
+ * docs/inherited-design.md I §2.1. `<prompt_version>` lives INSIDE the prompt body,
  * so it is impossible to log a scan without knowing which prompt produced it —
  * which is what makes the eval harness able to attribute a regression to a prompt
  * change rather than guessing.

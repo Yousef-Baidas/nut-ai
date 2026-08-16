@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
-    "@nutai/clamp": "*",
     "@nutai/confidence": "*",
     "@nutai/core-schema": "*",
     "@nutai/db-adapter": "*",

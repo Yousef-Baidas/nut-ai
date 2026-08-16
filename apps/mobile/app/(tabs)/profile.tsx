@@ -7,6 +7,7 @@ import type { ProviderId } from '@nutai/prompt'
 import { availability } from '../../src/health/healthkit'
 import { disableHealthSync, enableHealthSync, healthSyncEnabled } from '../../src/health/meal-sync'
 import { exportAndShareBackup, finishRestore, importBackup, pickBackupFile } from '../../src/data/backup'
+import { foodServerUrl } from '../../src/data/food-server'
 import {
   currentGoal,
   profileHeightCm,
@@ -47,6 +48,7 @@ export default function Profile() {
   const [healthSync, setHealthSync] = useState(false)
   const [diet, setDiet] = useState('')
   const [providerLabel, setProviderLabel] = useState('—')
+  const [serverHost, setServerHost] = useState('')
   const [dataBusy, setDataBusy] = useState(false)
   const [units, setUnits] = useState<UnitSystem>('imperial')
   const [heightCm, setHeightCm] = useState<number | null>(null)
@@ -55,7 +57,7 @@ export default function Profile() {
     useCallback(() => {
       let alive = true
       void (async () => {
-        const [g, avail, d, p, u, cm, hs] = await Promise.all([
+        const [g, avail, d, p, u, cm, hs, srv] = await Promise.all([
           currentGoal(),
           availability(),
           setting('diet.style', 'balanced'),
@@ -63,8 +65,12 @@ export default function Profile() {
           unitSystem(),
           profileHeightCm(),
           healthSyncEnabled(),
+          foodServerUrl(),
         ])
         if (!alive) return
+        // Show the host, not the scheme — the row answers "which machine?",
+        // and the settings screen holds the full URL.
+        setServerHost(srv.replace(/^https?:\/\//, ''))
         setGoal(g)
         setDiet(d)
         setUnits(u)
@@ -225,7 +231,7 @@ export default function Profile() {
       </Section>
 
       <Section title="Food database">
-        <Row label="Server address" value="" onPress={() => router.push('/food-server-settings' as never)} />
+        <Row label="Server address" value={serverHost} onPress={() => router.push('/food-server-settings' as never)} />
       </Section>
 
       <Section title="Apple Health">

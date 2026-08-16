@@ -9,6 +9,14 @@ const base = {
   model: 'x', imagesBase64: ['AAAA'], localSignalsBlock: '', jsonSchema: { type: 'object' },
 }
 
+/** Minimal shapes of each provider's request body, just the fields these tests read. */
+type AnthropicBody = { system: string; messages: unknown[] }
+type GeminiBody = { system_instruction: { parts: Array<{ text: string }> } }
+type OpenAIBody = {
+  messages: Array<{ content: string }>
+  response_format: { json_schema: { strict: boolean } }
+}
+
 describe('the system prompt', () => {
   it('embeds its own version, so no scan can be logged without knowing its prompt', () => {
     expect(SYSTEM_PROMPT).toContain(`<prompt_version>${PROMPT_VERSION}</prompt_version>`)
@@ -79,23 +87,23 @@ describe('provider wire formats', () => {
   })
 
   it('puts the system prompt in the system field for every provider', () => {
-    const a = buildAnthropicRequest(base, { kind: 'api_key', value: 'k' }).body as any
-    const g = buildGeminiRequest(base, 'k').body as any
-    const o = buildOpenAIRequest(base, 'k').body as any
+    const a = buildAnthropicRequest(base, { kind: 'api_key', value: 'k' }).body as AnthropicBody
+    const g = buildGeminiRequest(base, 'k').body as GeminiBody
+    const o = buildOpenAIRequest(base, 'k').body as OpenAIBody
     expect(a.system).toBe(SYSTEM_PROMPT)
-    expect(g.system_instruction.parts[0].text).toBe(SYSTEM_PROMPT)
-    expect(o.messages[0].content).toBe(SYSTEM_PROMPT)
+    expect(g.system_instruction.parts[0]!.text).toBe(SYSTEM_PROMPT)
+    expect(o.messages[0]!.content).toBe(SYSTEM_PROMPT)
   })
 
   it('keeps per-scan context in the USER turn so the cached prefix stays stable', () => {
     const withCtx = { ...base, localSignalsBlock: '<user_context>hi</user_context>' }
-    const a = buildAnthropicRequest(withCtx, { kind: 'api_key', value: 'k' }).body as any
+    const a = buildAnthropicRequest(withCtx, { kind: 'api_key', value: 'k' }).body as AnthropicBody
     expect(a.system).toBe(SYSTEM_PROMPT)
     expect(JSON.stringify(a.messages)).toContain('user_context')
   })
 
   it('requests strict structured output from OpenAI', () => {
-    const o = buildOpenAIRequest(base, 'k').body as any
+    const o = buildOpenAIRequest(base, 'k').body as OpenAIBody
     expect(o.response_format.json_schema.strict).toBe(true)
   })
 

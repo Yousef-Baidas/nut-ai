@@ -1,7 +1,7 @@
 /**
  * Schema DDL.
  *
- * SPEC-accuracy-engine.md §5.3. Two databases with deliberately separate
+ * docs/inherited-design.md I §5.3. Two databases with deliberately separate
  * lifecycles, and the separation is licensing as much as engineering:
  *
  *   nutrition.db  read-only PC-hosted database. ODbL/CC0 DATA, built on the
@@ -391,6 +391,18 @@ CREATE TABLE IF NOT EXISTS accuracy_baselines (
 `
 
 /** Current user-schema version. Bump with every migration added below. */
+/**
+ * The kcal a `log_items` row (aliased `li`) contributes to day totals
+ * (issue #29). Must stay basis-aligned with `itemCalories` in @nutai/totals:
+ * a row whose macros the user edited displays the Atwater 4/4/9 recompute
+ * (§6.2), so the day total deducts that same figure; every other row deducts
+ * its stored snapshot kcal verbatim. Lives here — not inline in the app's
+ * `dayTotals` — so the round-trip test and the app run the identical SQL.
+ */
+export const DEDUCTED_KCAL_EXPR = `CASE WHEN li.macros_user_edited = 1
+  THEN COALESCE(li.snap_protein_g, 0) * 4 + COALESCE(li.snap_carb_g, 0) * 4 + COALESCE(li.snap_fat_g, 0) * 9
+  ELSE li.snap_energy_kcal END`
+
 export const USER_SCHEMA_VERSION = 1
 
 export interface Migration {

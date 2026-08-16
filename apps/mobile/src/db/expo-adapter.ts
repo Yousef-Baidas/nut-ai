@@ -6,7 +6,7 @@ import * as SQLite from 'expo-sqlite'
  *
  * This file lives in apps/mobile and NOT in @nutai/db-adapter, deliberately.
  * `packages/*` must stay importable under bare Node with zero React Native
- * surface (PLAN.md §4.1) so the eval harness can run the real pipeline; an
+ * surface (docs/inherited-design.md II §4.1) so the eval harness can run the real pipeline; an
  * `import 'expo-sqlite'` in that package would fail the node-purity gate. This
  * app is the only place allowed to hold React Native imports.
  *

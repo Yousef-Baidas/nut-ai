@@ -3,7 +3,7 @@ import type { GramCandidate, GramEstimate } from './types.js'
 /**
  * Reconciliation — a trust hierarchy, not an average.
  *
- * SPEC-accuracy-engine.md §4.6.2.
+ * docs/inherited-design.md I §4.6.2.
  *
  * The rule that matters: DO NOT SILENTLY AVERAGE. A large disagreement between two
  * independent signals is itself information — arguably the most useful information

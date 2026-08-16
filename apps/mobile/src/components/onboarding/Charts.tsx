@@ -1,7 +1,7 @@
 import Svg, { Circle, Defs, LinearGradient, Path, Stop, Line as SvgLine } from 'react-native-svg'
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '../../theme/ThemeProvider'
-import { radius, space, type } from '../../theme/tokens'
+import { palette, radius, space, type } from '../../theme/tokens'
 
 /**
  * The three onboarding charts, hand-rolled in react-native-svg.
@@ -72,7 +72,7 @@ export function TrendComparisonChart({ gaining }: { gaining: boolean }) {
         <SvgLine x1="10" y1="95" x2="290" y2="95" stroke={theme.border} strokeDasharray="3 5" strokeWidth="1" />
 
         <Path d={`${withPlan} L 290 150 L 10 150 Z`} fill="url(#planFill)" />
-        <Path d={without} stroke="#E8615A" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <Path d={without} stroke={palette.chartWithoutPlan} strokeWidth="3" fill="none" strokeLinecap="round" />
         <Path d={withPlan} stroke={theme.text} strokeWidth="3.5" fill="none" strokeLinecap="round" />
 
         <Circle cx="10" cy={gaining ? 138 : 30} r="6" fill={theme.bg} stroke={theme.text} strokeWidth="3" />
@@ -83,7 +83,7 @@ export function TrendComparisonChart({ gaining }: { gaining: boolean }) {
         <View style={[styles.pill, { backgroundColor: theme.text }]}>
           <Text style={[type.micro, { color: theme.bg }]}>Nut AI</Text>
         </View>
-        <Text style={[type.caption, { color: '#E8615A' }]}>Without a plan</Text>
+        <Text style={[type.caption, { color: palette.chartWithoutPlan }]}>Without a plan</Text>
       </View>
 
       <View style={styles.axisRow}>
@@ -113,8 +113,8 @@ export function TransitionChart({ gaining }: { gaining: boolean }) {
       <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{ marginTop: space.md }}>
         <Defs>
           <LinearGradient id="transFill" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#C08A5A" stopOpacity="0.05" />
-            <Stop offset="1" stopColor="#C08A5A" stopOpacity="0.22" />
+            <Stop offset="0" stopColor={palette.chartFill} stopOpacity="0.05" />
+            <Stop offset="1" stopColor={palette.chartFill} stopOpacity="0.22" />
           </LinearGradient>
         </Defs>
 
@@ -122,12 +122,12 @@ export function TransitionChart({ gaining }: { gaining: boolean }) {
         <SvgLine x1="12" y1="118" x2="285" y2="118" stroke={theme.border} strokeDasharray="3 5" strokeWidth="1" />
 
         <Path d={`${d} L 285 150 L 12 150 Z`} fill="url(#transFill)" />
-        <Path d={d} stroke="#8C6239" strokeWidth="3.5" fill="none" strokeLinecap="round" />
+        <Path d={d} stroke={palette.chartLine} strokeWidth="3.5" fill="none" strokeLinecap="round" />
 
         {pts.slice(0, 3).map((p, i) => (
           <Circle key={i} cx={p.x} cy={p.y} r="6" fill={theme.bg} stroke={theme.text} strokeWidth="3" />
         ))}
-        <Circle cx={pts[3]!.x} cy={pts[3]!.y} r="15" fill="#C88A4B" />
+        <Circle cx={pts[3]!.x} cy={pts[3]!.y} r="15" fill={palette.chartDot} />
       </Svg>
 
       <View style={styles.axisRow}>

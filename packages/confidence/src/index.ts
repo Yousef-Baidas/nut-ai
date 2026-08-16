@@ -3,7 +3,7 @@ import type { GramPathway, Item, IngredientRow } from '@nutai/core-schema'
 /**
  * Confidence and calibration.
  *
- * SPEC-accuracy-engine.md §7.
+ * docs/inherited-design.md I §7.
  *
  * WHY THE MODEL'S OWN CONFIDENCE NUMBER IS NOT THE ANSWER.
  *
@@ -218,8 +218,8 @@ export function computeBand(input: ComputeBandInput): Band {
     half *= 0.85
   }
 
-  // 5. Path widening. Path B's closed vocabulary is a real constraint, not an
-  //    arbitrary penalty.
+  // 5. Path widening. The local path's closed vocabulary is a real constraint,
+  //    not an arbitrary penalty.
   if (path === 'local') half *= baselines.localPathMultiplier
 
   // 6. Personal-prior narrowing — the ONLY mechanism that can beat the population

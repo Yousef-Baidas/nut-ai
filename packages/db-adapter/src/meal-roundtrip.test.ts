@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openMemoryDb } from './node.js'
-import { USER_SCHEMA } from './schema.js'
+import { DEDUCTED_KCAL_EXPR, USER_SCHEMA } from './schema.js'
 import type { DbAdapter } from './types.js'
 
 /**
@@ -32,7 +32,7 @@ async function insertMeal(status: string, fraction = 1.0): Promise<number> {
   return Number(r.lastInsertRowId)
 }
 
-async function insertItem(mealId: number, kcalPer100: number, grams: number): Promise<void> {
+async function insertItem(mealId: number, kcalPer100: number, grams: number, macrosUserEdited = 0): Promise<void> {
   await db.run(
     `INSERT INTO log_items (meal_id, matched_food_id, matched_food_source, raw_model_label,
                             display_name, grams, gram_pathway, portion_source,
@@ -41,12 +41,15 @@ async function insertItem(mealId: number, kcalPer100: number, grams: number): Pr
                             is_estimate, macros_user_edited, band_half_pct, assumptions_json, sort_order, logged_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [mealId, 1, 'corpus', null, 'Test food', grams, 'packaged_exact', 'vision_model',
-     kcalPer100, 10, 5, 20, null, null, null, 0, 0, 0.1, '[]', 0, NOW],
+     kcalPer100, 10, 5, 20, null, null, null, 0, macrosUserEdited, 0.1, '[]', 0, NOW],
   )
 }
 
+// Atwater 4/4/9 over insertItem's fixed per-100g macros (10 P / 5 F / 20 C).
+const ATWATER_PER_100 = 10 * 4 + 20 * 4 + 5 * 9 // = 165
+
 const DAY_TOTALS_SQL = `
-  SELECT SUM(li.snap_energy_kcal * li.grams / 100.0 * m.portion_eaten_fraction) AS kcal,
+  SELECT SUM((${DEDUCTED_KCAL_EXPR}) * li.grams / 100.0 * m.portion_eaten_fraction) AS kcal,
          COUNT(DISTINCT m.id) AS meals
   FROM meals m JOIN log_items li ON li.meal_id = m.id
   WHERE m.local_date = ? AND m.analysis_status IN ('complete','manual')`
@@ -75,6 +78,24 @@ describe('meal round trip', () => {
     const row = await db.get<{ kcal: number; meals: number }>(DAY_TOTALS_SQL, ['2026-08-01'])
     expect(row!.kcal).toBeCloseTo(100, 6)
     expect(row!.meals).toBe(1)
+  })
+
+  it('deducts the Atwater 4/4/9 recompute for a macros-edited row — matching what the display shows (issue #29)', async () => {
+    const mealId = await insertMeal('manual')
+    await insertItem(mealId, 250, 100, 1)
+    const row = await db.get<{ kcal: number }>(DAY_TOTALS_SQL, ['2026-08-01'])
+    // The display switches to the 4/4/9 recompute the moment macros are edited
+    // (§6.2), so the day total must deduct that figure — never the stale 250.
+    expect(row!.kcal).toBeCloseTo(ATWATER_PER_100, 6)
+  })
+
+  it('keeps deducting stored kcal verbatim for untouched rows, mixed in the same day', async () => {
+    const edited = await insertMeal('manual')
+    await insertItem(edited, 250, 100, 1)
+    const untouched = await insertMeal('complete')
+    await insertItem(untouched, 250, 100, 0)
+    const row = await db.get<{ kcal: number }>(DAY_TOTALS_SQL, ['2026-08-01'])
+    expect(row!.kcal).toBeCloseTo(ATWATER_PER_100 + 250, 6)
   })
 
   it('cascades item deletion with the meal', async () => {

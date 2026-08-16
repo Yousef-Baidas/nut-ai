@@ -2,7 +2,7 @@
 /**
  * The golden-query suite.
  *
- * PLAN.md M0.5 exit criterion 3: a fixed set of queries must resolve to
+ * docs/inherited-design.md II M0.5 exit criterion 3: a fixed set of queries must resolve to
  * known-correct rows, and the BUILD FAILS on regression.
  *
  * This is what stops a corpus rebuild from quietly degrading search. A build that

@@ -3,7 +3,7 @@ import type { CookingCue } from '@nutai/core-schema'
 /**
  * Cooking yields and oil absorption.
  *
- * SPEC-accuracy-engine.md §4.5.
+ * docs/inherited-design.md I §4.5.
  *
  * The yield figures are CONFIRMED from the USDA Table of Cooking Yields for Meat
  * and Poultry (Showell et al., USDA ARS Nutrient Data Laboratory, December 2012),

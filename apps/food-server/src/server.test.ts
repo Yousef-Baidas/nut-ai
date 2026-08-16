@@ -131,6 +131,16 @@ describe('POST /pipeline', () => {
     expect(body.result.items).toHaveLength(1)
   })
 
+  it('a body over the 1 MiB cap is a 413, not an unbounded buffer', async () => {
+    const res = await fetch(`${base}/pipeline`, {
+      method: 'POST',
+      body: JSON.stringify({ raw: { pad: 'x'.repeat(1024 * 1024 + 1) }, path: 'cloud', now: Date.now() }),
+    })
+    expect(res.status).toBe(413)
+    const body = (await res.json()) as ErrorResponse
+    expect(body.error).toBe('body_too_large')
+  })
+
   it('a Zod-invalid raw payload is a 400, not a 500', async () => {
     const res = await fetch(`${base}/pipeline`, {
       method: 'POST',
