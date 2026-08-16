@@ -29,14 +29,12 @@ export interface HealthReadout {
   anyDataReturned: boolean
 }
 
-/** The identifiers we ask for. Minimum scope: every one is used by a feature. */
-const READ_TYPES = [
-  'HKQuantityTypeIdentifierStepCount',
-  'HKQuantityTypeIdentifierActiveEnergyBurned',
-  'HKQuantityTypeIdentifierBodyMass',
-  'HKWorkoutTypeIdentifier',
-] as const
-
+/**
+ * The identifiers we ask for. Minimum scope: only what meal sync writes (#5's
+ * ruling — permissions are requested only when a feature lands). Read scopes are
+ * deliberately absent: `readToday` below is dormant with no call sites, and the
+ * read feature that would use it re-adds its own scopes if and when it ships.
+ */
 const WRITE_TYPES = [
   'HKQuantityTypeIdentifierDietaryEnergyConsumed',
   'HKQuantityTypeIdentifierDietaryProtein',
@@ -101,8 +99,9 @@ export async function requestPermissions(): Promise<AuthResult> {
 
   try {
     // v14 takes ONE object with toRead / toShare, not two positional arrays.
+    // toRead is empty on purpose: nothing in the app reads Health data today.
     await hk.requestAuthorization({
-      toRead: READ_TYPES as never,
+      toRead: [] as never,
       toShare: WRITE_TYPES as never,
     })
 
@@ -125,7 +124,9 @@ export async function requestPermissions(): Promise<AuthResult> {
 }
 
 /**
- * Read today's activity.
+ * Read today's activity. DORMANT — no feature calls this yet, and no read scope
+ * is requested; the feature that ships it requests its own scopes then
+ * (docs/ratified-spec.md, HealthKit entry).
  *
  * Written to degrade rather than throw: a denied read and an empty day are
  * indistinguishable here, and both must produce a usable app.
