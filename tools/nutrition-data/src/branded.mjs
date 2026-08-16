@@ -5,8 +5,11 @@
  * slurped whole — because the branded release is ~2 GB unpacked and the
  * nutrient file alone is tens of millions of rows. The per-food metadata and
  * nutrient lookups this builds (`meta`, `nutrients`) DO accumulate in memory
- * across the whole branded release, which is fine at USDA branded's size but
- * is not the technique to reach for on something OFF-sized.
+ * across the whole branded release. The 2026 release is ~2M products (954 MB
+ * branded_food.csv), which overflows Node's default heap — data:build:full
+ * runs with --max-old-space-size=16384 for exactly this reason. If a future
+ * release outgrows that, switch the join to a SQLite temp table instead of
+ * raising the number again.
  *
  * DEDUP: `insertFood` (build-full.mjs) resolves a shared GTIN by tier rank —
  * `off` outranks `fdc_branded` regardless of which ingest runs first, so a
