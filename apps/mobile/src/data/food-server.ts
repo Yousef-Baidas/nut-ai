@@ -95,12 +95,29 @@ async function request(path: string, init?: RequestInit): Promise<
   try {
     const base = await foodServerUrl()
     const res = await fetch(`${base}${path}`, { ...init, signal: controller.signal })
-    if (res.status === 404) return { kind: 'error', result: { kind: 'not_found' } }
     let body: unknown
     try {
       body = await res.json()
-    } catch {
+    } catch (err) {
+      // A timeout can fire while the body is still streaming — res.json() then
+      // rejects with the SAME AbortError fetch() would have thrown. Attribute
+      // it to the timeout, not to a malformed body.
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+        return { kind: 'error', result: unreachable('timeout', `no answer in ${FOOD_SERVER_TIMEOUT_MS} ms`) }
+      }
       return { kind: 'error', result: unreachable('bad_response', `unreadable body — ${SKEW_HINT}`) }
+    }
+    if (res.status === 404) {
+      // The server 404s two distinct things: "no food at this barcode"
+      // (error: 'not_found', server.ts:103) and "this route doesn't exist on
+      // this server" (error: 'no_route', server.ts:146 — e.g. a version-skewed
+      // server that dropped a route). Only the former is a genuine miss; the
+      // latter means we couldn't talk to the server we expected.
+      if (isRecord(body) && body.error === 'not_found') {
+        return { kind: 'error', result: { kind: 'not_found' } }
+      }
+      const routeError = isRecord(body) && typeof body.error === 'string' ? body.error : 'unknown route'
+      return { kind: 'error', result: unreachable('http', `the server answered 404 (${routeError}) — is this the food server?`) }
     }
     if (!res.ok) {
       return { kind: 'error', result: unreachable('http', `the server answered ${res.status}`) }
@@ -184,7 +201,7 @@ export async function lookupBarcode(gtin: string): Promise<FoodServerResult<Barc
 
 export async function runRemotePipeline(req: {
   raw: unknown
-  path: 'cloud' | 'device'
+  path: 'cloud' | 'local'
   barcode?: string
   now: number
 }): Promise<FoodServerResult<PipelinePayload>> {
