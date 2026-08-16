@@ -88,4 +88,13 @@ describe('ingestBranded', () => {
     expect(rows[0].tier).toBe('off')
     expect(rows[0].source).toBe('off')
   })
+
+  it('drops its temp join tables when the ingest finishes', async () => {
+    const d = await db()
+    await ingestBranded({ db: d, dir: brandedDir(), insertFood })
+    const tempTables = d
+      .prepare("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name LIKE 'fdc_%'")
+      .all()
+    expect(tempTables).toEqual([])
+  })
 })
