@@ -20,7 +20,7 @@ export * from './yields.js'
 /**
  * The gram engine.
  *
- * SPEC-accuracy-engine.md §4. Pure TypeScript over bundled tables. Same code, both
+ * docs/inherited-design.md I §4. Pure TypeScript over bundled tables. Same code, both
  * inference paths. Under 10 ms.
  *
  * This is where the accuracy actually lives. The model told us WHAT is on the

@@ -28,7 +28,7 @@ import { toDisplayTotalsForMeal, type DisplayTotals } from '@nutai/totals'
 /**
  * The pipeline — stages 4 through 9, wired.
  *
- * SPEC-accuracy-engine.md §1.1. This module is the seam where every other package
+ * docs/inherited-design.md I §1.1. This module is the seam where every other package
  * becomes one system, and it is deliberately PURE: it takes a VisionPayload and a
  * database handle and returns a ScanResult. It performs no network I/O, holds no
  * credentials, and touches no platform API.

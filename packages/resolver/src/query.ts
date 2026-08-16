@@ -1,7 +1,7 @@
 /**
  * Query construction for FTS5.
  *
- * SPEC-accuracy-engine.md §5.4. Two things this module deliberately does NOT do,
+ * docs/inherited-design.md I §5.4. Two things this module deliberately does NOT do,
  * because FTS5 already does them better:
  *
  *   PLURALS AND INFLECTION -> the porter tokenizer, not app code. It is applied

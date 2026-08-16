@@ -4,7 +4,7 @@ import type { RefDim, ScaleEstimate, ScaleTier } from './types.js'
 /**
  * Reference-object scale priors.
  *
- * SPEC-accuracy-engine.md §4.1. Ranked by SIZE VARIANCE, not by how often the
+ * docs/inherited-design.md I §4.1. Ranked by SIZE VARIANCE, not by how often the
  * object appears. That ordering is the whole point: a dinner plate is the most
  * commonly present anchor and one of the worst, because "dinner plate" spans
  * 23–33 cm and that ±18% lands on the scale factor before any food-area error

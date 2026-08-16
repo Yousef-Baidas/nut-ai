@@ -3,7 +3,7 @@ import type { GramPathway, Item, IngredientRow } from '@nutai/core-schema'
 /**
  * Confidence and calibration.
  *
- * SPEC-accuracy-engine.md §7.
+ * docs/inherited-design.md I §7.
  *
  * WHY THE MODEL'S OWN CONFIDENCE NUMBER IS NOT THE ANSWER.
  *

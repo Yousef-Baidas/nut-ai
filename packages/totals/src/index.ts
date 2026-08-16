@@ -3,7 +3,7 @@ import type { IngredientRow, LoggedMeal, MacroTotals } from '@nutai/core-schema'
 /**
  * Totals, recompute, and display rounding.
  *
- * SPEC-accuracy-engine.md §6. Pure arithmetic over per-100 g snapshots. Zero
+ * docs/inherited-design.md I §6. Pure arithmetic over per-100 g snapshots. Zero
  * network, zero device APIs, sub-millisecond.
  *
  * This module is why no correction ever needs a paid model call again. The

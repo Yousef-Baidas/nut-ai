@@ -1,7 +1,7 @@
 /**
  * GTIN normalization.
  *
- * SPEC-accuracy-engine.md §5.6. A UPC-A is technically an EAN-13 with a leading
+ * docs/inherited-design.md I §5.6. A UPC-A is technically an EAN-13 with a leading
  * zero, so everything is normalized to a canonical 13-digit GTIN at BOTH
  * index-build time and scan time. Standard GS1 practice, and the reason a UPC-A
  * scanned off a US package finds the same row as its EAN-13 equivalent.

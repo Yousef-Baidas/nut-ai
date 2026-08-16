@@ -1,7 +1,7 @@
 /**
  * The stored domain model.
  *
- * SPEC-accuracy-engine.md §6.1. One invariant pays for the entire product:
+ * docs/inherited-design.md I §6.1. One invariant pays for the entire product:
  *
  *   Every ingredient row, regardless of origin, is stored as
  *   (food_reference, grams, per-100g nutrient snapshot) — NEVER as a bare

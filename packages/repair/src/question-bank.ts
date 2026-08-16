@@ -3,7 +3,7 @@ import type { Item, UncertaintyReason } from '@nutai/core-schema'
 /**
  * The ranked question bank.
  *
- * SPEC-accuracy-engine.md §8.4. Ordered by (a) swing magnitude, (b) how invisible
+ * docs/inherited-design.md I §8.4. Ordered by (a) swing magnitude, (b) how invisible
  * the ambiguity is in a photo, and (c) how cheaply and CERTAINLY asking resolves
  * it.
  *
@@ -245,7 +245,7 @@ export interface StructuralUncertainty {
 /**
  * Derive uncertainty from the FOOD CATEGORY alone, with no model self-report.
  *
- * SPEC-accuracy-engine.md §7.3. This module is what makes the local (no-model)
+ * docs/inherited-design.md I §7.3. This module is what makes the local (no-model)
  * path possible at all — nothing on that path can emit stated_assumptions,
  * clarifying_questions or uncertainty_reason, so there this is the SOLE source
  * of those fields.

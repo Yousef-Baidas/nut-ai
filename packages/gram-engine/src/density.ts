@@ -1,7 +1,7 @@
 /**
  * Density lookup.
  *
- * SPEC-accuracy-engine.md §4.3.
+ * docs/inherited-design.md I §4.3.
  *
  * LICENSING, stated plainly. The FAO/INFOODS Density Database v2.0 (2012) — 638
  * entries, the obvious source — is NOT CC0 like USDA FDC and NOT ODbL like Open

@@ -3,7 +3,7 @@ import type { GramPathway } from '@nutai/core-schema'
 /**
  * Per-pathway uncertainty half-bands.
  *
- * SPEC-accuracy-engine.md §4.9. Every band below traces to a specific cited
+ * docs/inherited-design.md I §4.9. Every band below traces to a specific cited
  * figure. That matters for defending the accuracy-honesty positioning against the
  * obvious challenge — "how do you know these ranges are right?"
  *

@@ -1,7 +1,7 @@
 /**
  * Schema DDL.
  *
- * SPEC-accuracy-engine.md §5.3. Two databases with deliberately separate
+ * docs/inherited-design.md I §5.3. Two databases with deliberately separate
  * lifecycles, and the separation is licensing as much as engineering:
  *
  *   nutrition.db  read-only PC-hosted database. ODbL/CC0 DATA, built on the

@@ -17,7 +17,7 @@ export * from './search-normalize.js'
 /**
  * Nutrition resolution — food name to database row.
  *
- * SPEC-accuracy-engine.md §5. The stage between "the model says this is grilled
+ * docs/inherited-design.md I §5. The stage between "the model says this is grilled
  * chicken breast" and "165 kcal per 100 g, from FDC row 171077".
  *
  * Everything here is offline. No network call has ever been part of this stage,

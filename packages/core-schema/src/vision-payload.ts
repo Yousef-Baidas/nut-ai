@@ -3,10 +3,10 @@ import { z } from 'zod'
 /**
  * VisionPayload — the ONLY thing an inference model is allowed to return.
  *
- * SPEC-accuracy-engine.md §3.1–3.2. One canonical schema, three emitted provider
+ * docs/inherited-design.md I §3.1–3.2. One canonical schema, three emitted provider
  * shapes, one client-side validator that runs for all of them.
  *
- * The governing rule (PLAN.md D16) is visible in the shape of this type:
+ * The governing rule (docs/inherited-design.md II D16) is visible in the shape of this type:
  *
  *   The model is a perception device. It never owns a number the user sees.
  *

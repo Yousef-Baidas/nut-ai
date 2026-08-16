@@ -1,7 +1,7 @@
 /**
  * The one database interface, with two implementations.
  *
- * PLAN.md §4.1 calls this "the one non-obvious architectural requirement", and it
+ * docs/inherited-design.md II §4.1 calls this "the one non-obvious architectural requirement", and it
  * is the reason the whole `packages/*` purity rule exists:
  *
  *   The eval harness must import the REAL gram engine and the REAL resolver and
@@ -67,7 +67,8 @@ export interface DbCapabilities {
   /**
    * FTS5 is REQUIRED, not optional. The resolver's entire candidate-generation
    * strategy depends on it, and the fallback plan (switching to op-sqlite) is a
-   * decision to make at the M0.5 gate and nowhere later. Verified in a real dev
+   * decision the inherited plan pinned to its M0.5 gate (docs/inherited-design.md
+   * II M0.5) and nowhere later. Verified in a real dev
    * client against the real bundled asset, because a simulator answering "yes" is
    * not evidence about a device.
    */

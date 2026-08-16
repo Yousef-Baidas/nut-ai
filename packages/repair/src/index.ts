@@ -10,7 +10,7 @@ export * from './question-bank.js'
 /**
  * The interruption rule.
  *
- * SPEC-accuracy-engine.md §8.1.
+ * docs/inherited-design.md I §8.1.
  *
  *   expected_value(Q) = P(assumption_wrong) x expected_kcal_swing(Q) x severity
  *

@@ -21,7 +21,7 @@ const MODES: Array<{ id: CameraMode; label: string; icon: IconName }> = [
 /**
  * Capture.
  *
- * SPEC-accuracy-engine.md §1.1 stages 0 and 1.
+ * docs/inherited-design.md I §1.1 stages 0 and 1.
  *
  * THE SHUTTER ALWAYS SUCCEEDS. It writes a draft row before anything else can
  * fail — no key, no network, no model, no permission to analyze. A capture that

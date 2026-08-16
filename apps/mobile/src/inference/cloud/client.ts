@@ -18,7 +18,7 @@ import {
  * `'local'` value of InferencePath now names the deterministic no-model
  * pipeline instead.
  *
- * SPEC-accuracy-engine.md §3, PLAN.md D10. A thin wrapper over React Native's
+ * docs/inherited-design.md I §3, II D10. A thin wrapper over React Native's
  * `fetch`, deliberately NOT the vendor Node SDKs: those assume Node runtime
  * features Hermes does not guarantee. Non-streaming, one request in, one JSON
  * object out — which removes the single largest RN fetch/ReadableStream risk from

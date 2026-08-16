@@ -3,7 +3,7 @@ import { SYSTEM_PROMPT, PROMPT_VERSION } from './system-prompt.js'
 /**
  * Provider wire formats.
  *
- * SPEC-accuracy-engine.md §3.3 and §3.5. One canonical schema, three emitted
+ * docs/inherited-design.md I §3.3 and §3.5. One canonical schema, three emitted
  * shapes. This module builds request BODIES only — it performs no I/O, holds no
  * credentials, and imports nothing platform-specific, so the eval harness can
  * diff the exact bytes each provider would receive without a network stack.

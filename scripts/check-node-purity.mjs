@@ -2,7 +2,7 @@
 /**
  * Node-purity gate.
  *
- * PLAN.md §4.1: "Every `packages/*` module must remain importable in plain Node
+ * docs/inherited-design.md II §4.1: "Every `packages/*` module must remain importable in plain Node
  * with zero React Native surface. Enforce with a CI check that imports each
  * package in a bare Node script."
  *
@@ -186,7 +186,7 @@ async function main() {
     }
     console.error(
       '\n  packages/* must be pure TypeScript. The eval harness imports these modules\n' +
-        '  under plain Node — see PLAN.md §4.1. If you need platform behaviour here,\n' +
+        '  under plain Node — see docs/inherited-design.md II §4.1. If you need platform behaviour here,\n' +
         '  put it behind an interface and implement it in apps/mobile.\n' +
         '  Storage specifically: use packages/db-adapter, which has both an\n' +
         '  expo-sqlite implementation and a better-sqlite3 one.\n',

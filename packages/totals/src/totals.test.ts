@@ -217,7 +217,7 @@ describe('display rounding — Regime B', () => {
   it('reproduces the spec worked example, resolving a contradiction inside it', () => {
     // Three items summing to 480.9 kcal / 52.69 P / 6.19 F / 50.0 C.
     //
-    // SPEC-accuracy-engine.md §6.3 contradicts itself here. The stated rule is
+    // docs/inherited-design.md I §6.3 contradicts itself here. The stated rule is
     // "one decimal for grams under 10 g; whole grams at 10 g and above", which
     // makes 6.19 g of fat display as 6.2. But the worked example immediately
     // below it shows that same 6.19 rounding to 6 — the whole-gram rule — and

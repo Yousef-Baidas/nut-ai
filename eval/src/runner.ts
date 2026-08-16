@@ -196,12 +196,14 @@ function printMetricsTable(title: string, byKey: Record<string, Metrics>): void 
 
 export function printReport(run: EvalRunResult): void {
   console.log('='.repeat(72))
-  console.log('EVAL RUN — golden set provenance: SEEDED'.padEnd(60) + (run.provenance === 'seeded' ? '(seeded)' : '(measured)'))
-  console.log(
-    'These numbers come from a synthetic, provenance-labelled golden set, not\n' +
-      'kitchen-scale-weighed dishes. They exercise the real pipeline end to end and\n' +
-      'must never be presented as measured accuracy.',
-  )
+  console.log(`EVAL RUN — golden set provenance: ${run.provenance.toUpperCase()}`)
+  if (run.provenance === 'seeded') {
+    console.log(
+      'These numbers come from a synthetic, provenance-labelled golden set, not\n' +
+        'kitchen-scale-weighed dishes. They exercise the real pipeline end to end and\n' +
+        'must never be presented as measured accuracy.',
+    )
+  }
   console.log('='.repeat(72))
 
   if (run.failures.length > 0) {
@@ -218,9 +220,9 @@ export function printReport(run: EvalRunResult): void {
   console.log('\nGATE VERDICT')
   console.log('------------')
   if (run.gate.pass) {
-    console.log('PASS: gate verdict — pass (seeded golden set)')
+    console.log(`PASS: gate verdict — pass (${run.provenance} golden set)`)
   } else {
-    console.log('FAIL: gate verdict — fail (seeded golden set)')
+    console.log(`FAIL: gate verdict — fail (${run.provenance} golden set)`)
     for (const f of run.gate.failures) console.log(`  - ${f}`)
   }
   for (const w of run.gate.warnings) console.log(`  warning: ${w}`)

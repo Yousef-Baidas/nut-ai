@@ -1,7 +1,7 @@
 /**
  * The design system, as typed tokens.
  *
- * SPEC-ui.md §4. This is the ONLY file in the app allowed to contain a hex
+ * docs/inherited-design.md III §4. This is the ONLY file in the app allowed to contain a hex
  * colour — an ESLint rule enforces it. That is not tidiness: a hardcoded colour
  * is a colour that silently ignores dark mode and never gets contrast-checked.
  *

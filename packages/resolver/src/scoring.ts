@@ -1,7 +1,7 @@
 /**
  * Candidate scoring.
  *
- * SPEC-accuracy-engine.md §5.5. Six signals plus one penalty, combined linearly.
+ * docs/inherited-design.md I §5.5. Six signals plus one penalty, combined linearly.
  * The weights are tunable constants to be fitted against real dogfood logs — they
  * are a reasoned starting point, not final numbers, and they live here in one
  * place precisely so fitting them is a one-file change.

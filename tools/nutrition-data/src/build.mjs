@@ -2,7 +2,7 @@
 /**
  * The nutrition-corpus build.
  *
- * PLAN.md M0.5 / SPEC-accuracy-engine.md §5.2. Ships the GENERIC tier first
+ * docs/inherited-design.md II M0.5 / I §5.2. Ships the GENERIC tier first
  * (~15-25 MB) to unblock M1; branded and the national tables are additive stages
  * gated independently.
  *

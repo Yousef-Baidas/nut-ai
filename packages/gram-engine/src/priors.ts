@@ -3,7 +3,7 @@ import type { PersonalPrior } from './types.js'
 /**
  * Personal gram priors — the flagship "it learns from you" mechanism.
  *
- * SPEC-accuracy-engine.md §4.8. This is the direct answer to the best-corroborated
+ * docs/inherited-design.md I §4.8. This is the direct answer to the best-corroborated
  * finding about the app we are replacing: four independent sources using
  * near-identical language — "no way to teach the AI", "does not improve based on
  * your corrections", "corrections do not persist between scans".
