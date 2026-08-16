@@ -4,7 +4,7 @@
   "private": true,
   "license": "ODbL-1.0",
   "type": "module",
-  "description": "Builds the bundled nutrition.db artifact. Separately licensed from the app.",
+  "description": "Builds the small test-fixture nutrition.db used by tests and data:verify. Not bundled into the app; the phone talks to the PC-hosted food server instead. Separately licensed from the app.",
   "scripts": {
     "build": "node src/build.mjs",
     "verify": "node src/golden-queries.mjs"

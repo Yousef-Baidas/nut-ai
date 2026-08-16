@@ -14,7 +14,10 @@
  */
 
 /**
- * The read-only bundled corpus.
+ * The read-only nutrition corpus. Nothing here ships inside the phone app —
+ * this schema backs the PC-hosted `nutrition-full.db` that `food-server`
+ * serves over Tailscale, and the small test fixture that `npm run data:build`
+ * produces for `npm test` / `npm run data:verify`.
  *
  * TWO SCHEMA DECISIONS WORTH DEFENDING:
  *
@@ -140,7 +143,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS food_fts_trigram USING fts5(
  * THE INVARIANT THAT PAYS FOR EVERYTHING: log_items carries a per-100 g snapshot
  * COPIED at log time. The diary never joins live to `foods`.
  *
- * If the bundled corpus is updated in a later release — corrected USDA data, a
+ * If the nutrition corpus is updated later — corrected USDA data, a
  * merged OFF update — historical entries must not silently change. A user's
  * Tuesday breakfast total must not shift because Thursday's app update fixed a
  * typo in the almond-butter row. That is a real, easy-to-miss correctness bug

@@ -141,10 +141,13 @@ listing taking a cut. One-time setup, ~20 minutes.
 ```bash
 git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
-npm run data:build                      # builds the bundled USDA nutrition database
 cd apps/mobile && npm run prebuild      # generates the native project
 open ios/NutAI.xcworkspace              # then: pick your phone, press Run (⌘R)
 ```
+
+The phone bundles no nutrition database — `npm run data:build` is not part of this flow. It
+builds a small test fixture used by `npm test` and `npm run data:verify`, nothing the app ships
+or reads. See "Running the food server" below for the database the app actually talks to.
 
 Xcode will ask you to pick a signing team the first time — your free Apple ID works (apps signed
 this way re-install every 7 days; a $99/yr developer account removes that limit).
@@ -154,7 +157,6 @@ this way re-install every 7 days; a $99/yr developer account removes that limit)
 ```bash
 git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
-npm run data:build
 cd apps/mobile && npx expo run:android --variant release   # phone plugged in, USB debugging on
 ```
 
@@ -179,15 +181,17 @@ entry and, with a key, an AI estimate.
 
 The nutrition database is built on your PC and served to the app over your home network or Tailscale.
 
-**Build the full corpus** (one-time, takes ~5 minutes):
+**Build the full corpus** (one-time). This merges three tiers into one SQLite file; on the order
+of an hour or more even on a fast machine — the Open Food Facts JSONL alone is a 12 GB download
+that decompresses into 4.68M product lines, and USDA Branded Foods is ~2M products:
 
 ```bash
 npm run data:build:full
 ```
 
-This downloads and merges three tiers:
+The build itself downloads nothing — fetch Open Food Facts first, separately:
 
-1. **Open Food Facts** (off) — ~9 GB gzipped, resumable:
+1. **Open Food Facts** (off) — ~9-12 GB gzipped, resumable:
    ```bash
    curl -C - -o ~/nut-ai-data/openfoodfacts-products.jsonl.gz \
      https://static.openfoodfacts.org/data/openfoodfacts-products.jsonl.gz
@@ -196,8 +200,9 @@ This downloads and merges three tiers:
    `~/nut-ai-data/fdc/branded/` (set `FDC_BRANDED_DIR` to skip)
 3. **Arab Curated Foods** (arab_curated) — checked into the repo, 20 cited rows by default
 
-Output lands at `~/nut-ai-data/nutrition-full.db`. The three tiers use separate licences (ODbL,
-CC0, curated-cited) — see `THIRD-PARTY-DATA.md`.
+Then run `npm run data:build:full`, which reads those and merges them. Output lands at
+`~/nut-ai-data/nutrition-full.db`. The three tiers use separate licences (ODbL, CC0,
+curated-cited) — see `THIRD-PARTY-DATA.md`.
 
 **Find your PC's Tailscale address:**
 
@@ -205,16 +210,15 @@ CC0, curated-cited) — see `THIRD-PARTY-DATA.md`.
 tailscale ip -4
 ```
 
-**Install the systemd service** on the PC (one-time):
+**Install the systemd service** on the PC (one-time) — this is a **user** unit, not a system
+one, so `%h` in the unit file resolves to your own home directory rather than `/root`. Use the
+exact recipe from [`deploy/food-server.service`](deploy/food-server.service)'s own header:
 
 ```bash
-sed "s|/full/path/to/nut-ai|$(pwd)|g" deploy/food-server.service | \
-  sudo tee /etc/systemd/system/food-server.service
-```
-
-**Start the server:**
-
-```bash
+mkdir -p ~/.config/systemd/user
+sed "s|@REPO@|$(pwd)|; s|@TSIP@|$(tailscale ip -4)|" \
+  deploy/food-server.service > ~/.config/systemd/user/food-server.service
+systemctl --user daemon-reload
 systemctl --user enable --now food-server
 ```
 
