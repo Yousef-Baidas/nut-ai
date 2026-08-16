@@ -22,7 +22,7 @@ import {
 } from '../../src/units/format'
 import { Icon } from '../../src/components/Icon'
 import { useTheme } from '../../src/theme/ThemeProvider'
-import { radius, space, type } from '../../src/theme/tokens'
+import { palette, radius, space, type } from '../../src/theme/tokens'
 
 const WINDOWS = [
   { key: '90D', days: 90 },
@@ -338,10 +338,10 @@ function BmiScale({ value }: { value: number }) {
   const W = 300
   const pos = Math.max(0, Math.min(1, (value - 15) / 20))
   const segs = [
-    { w: (18.5 - 15) / 20, c: '#6E9BFF' },
-    { w: (25 - 18.5) / 20, c: '#2E9E6B' },
-    { w: (30 - 25) / 20, c: '#F2A93B' },
-    { w: (35 - 30) / 20, c: '#D5453B' },
+    { w: (18.5 - 15) / 20, c: palette.bmiUnder },
+    { w: (25 - 18.5) / 20, c: palette.bmiNormal },
+    { w: (30 - 25) / 20, c: palette.bmiOver },
+    { w: (35 - 30) / 20, c: palette.bmiObese },
   ]
   let cursor = 0
   return (

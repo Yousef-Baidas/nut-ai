@@ -7,7 +7,7 @@ import { Icon, type IconName } from '../src/components/Icon'
 import { startBarcodeScan, startLabelScan, startReceiptScan, startScan } from '../src/scan/orchestrator'
 import { setPhase } from '../src/scan/store'
 import { useTheme } from '../src/theme/ThemeProvider'
-import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
+import { MIN_TAP_TARGET, palette, radius, space, type } from '../src/theme/tokens'
 
 type CameraMode = 'food' | 'barcode' | 'label' | 'receipt'
 
@@ -43,7 +43,7 @@ export default function Camera() {
   // Barcode frames arrive continuously; only the FIRST detection may fire.
   const barcodeFired = useRef(false)
 
-  if (!permission) return <View style={{ flex: 1, backgroundColor: '#000' }} />
+  if (!permission) return <View style={{ flex: 1, backgroundColor: palette.black }} />
 
   if (!permission.granted) {
     return (
@@ -97,7 +97,7 @@ export default function Camera() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: palette.black }}>
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -121,8 +121,8 @@ export default function Camera() {
                 }}
                 style={[styles.modePill, active && styles.modePillActive]}
               >
-                <Icon name={m.icon} size={18} color={active ? '#000' : '#fff'} />
-                <Text style={[type.label, { color: active ? '#000' : '#fff' }]}>{m.label}</Text>
+                <Icon name={m.icon} size={18} color={active ? palette.black : palette.white} />
+                <Text style={[type.label, { color: active ? palette.black : palette.white }]}>{m.label}</Text>
               </Pressable>
             )
           })}
@@ -148,7 +148,7 @@ export default function Camera() {
         hitSlop={space.md}
         style={[styles.close, { top: insets.top + space.md }]}
       >
-        <Text style={{ color: '#fff', fontSize: 22 }}>×</Text>
+        <Text style={{ color: palette.white, fontSize: 22 }}>×</Text>
       </Pressable>
     </View>
   )
@@ -184,13 +184,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     minHeight: MIN_TAP_TARGET,
   },
-  modePillActive: { backgroundColor: '#fff' },
+  modePillActive: { backgroundColor: palette.white },
   hint: { color: 'rgba(255,255,255,0.85)', paddingVertical: space.lg },
   shutter: {
     width: 74,
     height: 74,
     borderRadius: radius.pill,
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderWidth: 4,
     borderColor: 'rgba(255,255,255,0.4)',
   },

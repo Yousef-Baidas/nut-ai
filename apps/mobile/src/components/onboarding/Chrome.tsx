@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from '../Icon'
 import { useTheme } from '../../theme/ThemeProvider'
-import { MIN_TAP_TARGET, radius, space, type } from '../../theme/tokens'
+import { MIN_TAP_TARGET, palette, radius, space, type } from '../../theme/tokens'
 
 /**
  * Shared onboarding chrome: back chevron, progress bar, title, subtitle, and the
@@ -24,7 +24,7 @@ export function ProgressBar({ step, total }: { step: number; total: number }) {
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: total, now: step }}
-      style={[styles.track, { backgroundColor: theme.isDark ? theme.border : '#EDEDF0' }]}
+      style={[styles.track, { backgroundColor: theme.isDark ? theme.border : palette.onboardingTrack }]}
     >
       <View style={[styles.fill, { width: `${pct * 100}%`, backgroundColor: theme.text }]} />
     </View>
@@ -41,7 +41,7 @@ export function OnboardingHeader({ step, total }: { step: number; total: number 
         accessibilityLabel="Go back"
         onPress={() => router.back()}
         hitSlop={space.sm}
-        style={[styles.back, { backgroundColor: theme.isDark ? theme.bgElevated : '#F3F3F6' }]}
+        style={[styles.back, { backgroundColor: theme.isDark ? theme.bgElevated : palette.onboardingBack }]}
       >
         <View style={{ transform: [{ rotate: '180deg' }] }}>
           <Icon name="chevron" size={19} color={theme.text} weight={2.2} />
@@ -134,10 +134,10 @@ export function OnboardingScreen({
           onPress={onCta}
           style={[
             styles.primary,
-            { backgroundColor: ctaDisabled ? (theme.isDark ? theme.border : '#B7B7BD') : theme.text },
+            { backgroundColor: ctaDisabled ? (theme.isDark ? theme.border : palette.onboardingCtaDisabled) : theme.text },
           ]}
         >
-          <Text style={[type.bodyStrong, { color: ctaDisabled ? '#FFFFFF' : theme.bg, fontSize: 18 }]}>
+          <Text style={[type.bodyStrong, { color: ctaDisabled ? palette.white : theme.bg, fontSize: 18 }]}>
             {cta}
           </Text>
         </Pressable>

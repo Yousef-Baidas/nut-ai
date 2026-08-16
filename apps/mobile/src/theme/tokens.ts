@@ -30,6 +30,7 @@ export const palette = {
   ink100: '#EFEFF3',
   ink50: '#F7F7FA',
   white: '#FFFFFF',
+  black: '#000000',
 
   // Macro identity. These are IDENTITY colours: one macro, one hue, everywhere.
   // They never double as status.
@@ -49,6 +50,33 @@ export const palette = {
   // Success is quiet on purpose. Logging a meal is not an achievement to
   // celebrate; it is a thing you did.
   affirm: '#2E9E6B',
+
+  // Micro-nutrient identity, used only on the totals screen's second page.
+  fiber: '#8B7BD8',
+  sugar: '#E88BA8',
+  sodium: '#D6A648',
+
+  // Progress screen: dark-mode-equivalent hues used against a light BMI scale,
+  // and the dark-theme macro/status hues reused verbatim in that one chart.
+  bmiUnder: '#6E9BFF',
+  bmiNormal: '#2E9E6B',
+  bmiOver: '#F2A93B',
+  bmiObese: '#D5453B',
+
+  // Onboarding only: chart hues and light-mode chrome greys used exclusively by
+  // the onboarding flow (src/components/onboarding/*, app/onboarding/*). Not
+  // part of the app-wide theme — these never appear outside onboarding.
+  chartWithoutPlan: '#E8615A',
+  chartFill: '#C08A5A',
+  chartLine: '#8C6239',
+  chartDot: '#C88A4B',
+  onboardingTrack: '#EDEDF0',
+  onboardingBack: '#F3F3F6',
+  onboardingCtaDisabled: '#B7B7BD',
+  onboardingGlyphBg: '#F3F2F8',
+  onboardingSegmentBg: '#F0F0F3',
+  onboardingTick: '#1A1A1F',
+  onboardingWheelBand: '#F2F2F5',
 } as const
 
 export interface Theme {
@@ -170,5 +198,9 @@ export const motion = {
   reveal: 520,
 } as const
 
-/** Minimum tap target. Anything smaller MUST set hitSlop — an ESLint rule checks. */
+/**
+ * Minimum tap target. Anything smaller MUST set hitSlop — a review convention,
+ * not lint-enforced (a rule flagging any width/height under 44 would fire on
+ * every divider and icon).
+ */
 export const MIN_TAP_TARGET = 44
