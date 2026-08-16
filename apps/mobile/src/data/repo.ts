@@ -1,4 +1,4 @@
-import { migrate, type DbAdapter } from '@nutai/db-adapter'
+import { DEDUCTED_KCAL_EXPR, migrate, type DbAdapter } from '@nutai/db-adapter'
 import {
   computeMacros,
   computeTrend,
@@ -231,6 +231,10 @@ export interface DayTotals {
  *
  * `day_summaries` exists as a cache for the widget, but it is droppable and
  * rebuildable — this query is the source of truth.
+ *
+ * Kcal deduction follows `DEDUCTED_KCAL_EXPR`: the same trusted-vs-recomputed
+ * partition the result display uses, so displayed kcal = deducted kcal for
+ * every row class (issue #29).
  */
 export async function dayTotals(date: string): Promise<DayTotals> {
   const h = await db()
@@ -244,7 +248,7 @@ export async function dayTotals(date: string): Promise<DayTotals> {
     slots: number | null
   }>(
     `SELECT
-       SUM(li.snap_energy_kcal * li.grams / 100.0 * m.portion_eaten_fraction) AS kcal,
+       SUM((${DEDUCTED_KCAL_EXPR}) * li.grams / 100.0 * m.portion_eaten_fraction) AS kcal,
        SUM(li.snap_protein_g   * li.grams / 100.0 * m.portion_eaten_fraction) AS p,
        SUM(li.snap_fat_g       * li.grams / 100.0 * m.portion_eaten_fraction) AS f,
        SUM(li.snap_carb_g      * li.grams / 100.0 * m.portion_eaten_fraction) AS c,

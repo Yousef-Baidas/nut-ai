@@ -127,7 +127,7 @@ describe('manual entry → log, with no key', () => {
     if (phase.kind !== 'ready') throw new Error('unreachable')
 
     expect(phase.result.totals.kcal).toBe(150)
-    // What dayTotals deducts: SUM(snap_energy_kcal * grams / 100 * portion).
+    // What dayTotals deducts for an untouched row: snap_energy_kcal * grams / 100 * portion.
     const [row] = phase.result.meal.ingredients
     const deducted =
       (row!.nutrientSnapshot.kcal * row!.grams * phase.result.meal.portionEatenFraction) / 100
