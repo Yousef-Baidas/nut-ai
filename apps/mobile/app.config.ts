@@ -1,5 +1,11 @@
 import type { ExpoConfig } from 'expo/config'
-import { palette } from './src/theme/tokens'
+
+// This file is evaluated by @expo/config under plain Node `require` at server
+// start — Metro never sees it, so a runtime import of `./src/theme/tokens`
+// fails to resolve and 500s every manifest request. The one colour it needs is
+// therefore inlined (kept equal to palette.ink900), and eslint.config.mjs
+// exempts this file from the hex ban for exactly this reason.
+const INK_900 = '#0B0B0F'
 
 /**
  * App configuration.
@@ -47,7 +53,7 @@ const config: ExpoConfig = {
 
   android: {
     package: BUNDLE_ID,
-    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: palette.ink900 },
+    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: INK_900 },
     permissions: ['android.permission.CAMERA'],
     // No Google Play Services dependency: all notifications are local, there is
     // no push token and no FCM. Preserving that keeps F-Droid viable, which
