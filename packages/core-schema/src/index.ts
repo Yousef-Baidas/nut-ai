@@ -1,5 +1,8 @@
 // @nutai/core-schema — the Zod source of truth. Pure TypeScript, no React Native
 // surface (PLAN.md §4.1), so the eval harness can import it under plain Node.
+// The harness (`eval/src/runner.ts`) does exactly that, against a currently
+// seeded (synthetic, provenance-labelled) golden set — kitchen-scale-weighed
+// cases replace it case by case.
 export * from './vision-payload.js'
 export * from './domain.js'
 export * from './wire-schema.js'

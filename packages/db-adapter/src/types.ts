@@ -8,7 +8,10 @@
  *   run them under Node against the golden set. Without a Node-runnable database,
  *   the harness could only score raw model output — which measures the wrong
  *   thing, because the gram engine and resolver sit between the model and the
- *   number a user sees, and that is where much of the accuracy lives.
+ *   number a user sees, and that is where much of the accuracy lives. `eval/`
+ *   (see `eval/src/runner.ts`) does exactly this — the golden set is currently
+ *   seeded (synthetic, provenance-labelled); kitchen-scale-weighed cases replace
+ *   it case by case.
  *
  * WHERE THE TWO IMPLEMENTATIONS LIVE, and why they are split:
  *

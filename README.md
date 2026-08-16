@@ -123,13 +123,18 @@ packages/         pure TypeScript, importable under plain Node:
   pipeline        scan stages 4-9 wired end to end — the composition layer, and the
                   widest fan-out in the repo: it depends on eight of the packages above
 eval/             accuracy harness — imports the real engine, runs under Node
+                  (npm run eval:run). The golden set is currently seeded
+                  (synthetic, provenance-labelled); kitchen-scale-weighed
+                  cases replace it case by case.
 ```
 
 **`packages/*` must stay React-Native-free.** This is enforced by `npm run check:node-purity`, which
 both scans for forbidden imports and actually imports every package under bare Node. It is not a style
 rule: the accuracy harness has to run the *real* gram engine and resolver against the golden set. If
 those become RN-only, the harness can only score raw model output — which measures the wrong thing,
-because most of the accuracy lives between the model and the number.
+because most of the accuracy lives between the model and the number. The golden set it runs against
+today is seeded (synthetic, provenance-labelled) — kitchen-scale-weighed cases replace it case by
+case, and nothing the harness prints may be presented as measured accuracy until they do.
 
 ## Put it on your phone
 
