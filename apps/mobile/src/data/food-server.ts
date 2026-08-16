@@ -213,7 +213,19 @@ export async function runRemotePipeline(req: {
   if (r.kind === 'error') return r.result
 
   const b = r.body
-  if (!isRecord(b) || b.result == null) {
+  // A shape check, not a full validation — the orchestrator still treats
+  // `result` as opaque (`PipelinePayload.result: unknown`) and casts it to
+  // `ScanResult` itself. This only catches a version-skewed server whose
+  // /pipeline route answers 200 with something that isn't even a ScanResult
+  // shape, so that garbage maps to `bad_response` (blame the server) instead
+  // of flowing through the cast into "the model answered in a shape we could
+  // not use" (blame the model).
+  if (
+    !isRecord(b) ||
+    !isRecord(b.result) ||
+    typeof b.result.isFood !== 'boolean' ||
+    !Array.isArray(b.result.items)
+  ) {
     return unreachable('bad_response', `/pipeline was not the expected shape — ${SKEW_HINT}`)
   }
   return { kind: 'ok', value: { result: b.result } }

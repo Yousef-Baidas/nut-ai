@@ -200,13 +200,21 @@ describe('runRemotePipeline', () => {
       // fail this cast, since InferencePath is 'cloud' | 'local').
       const sent = JSON.parse(String(init?.body)) as PipelineRequest
       expect(sent.path).toBe('cloud')
-      return jsonResponse(200, { schemaVersion: 1, result: { isFood: true } })
+      return jsonResponse(200, { schemaVersion: 1, result: { isFood: true, items: [] } })
     })
     vi.stubGlobal('fetch', spy)
     const r = await runRemotePipeline(req)
     expect(r.kind).toBe('ok')
     if (r.kind !== 'ok') throw new Error('unreachable')
-    expect(r.value.result).toEqual({ isFood: true })
+    expect(r.value.result).toEqual({ isFood: true, items: [] })
+  })
+
+  it('reports bad_response when the result does not even look like a ScanResult (version skew)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { schemaVersion: 1, result: { ok: true } })))
+    const r = await runRemotePipeline({ raw: {}, path: 'cloud', now: 0 })
+    expect(r.kind).toBe('server_unreachable')
+    if (r.kind !== 'server_unreachable') throw new Error('unreachable')
+    expect(r.reason).toBe('bad_response')
   })
 
   it('never sends a path value the server would reject with 400', () => {

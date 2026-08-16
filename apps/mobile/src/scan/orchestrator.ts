@@ -188,6 +188,7 @@ async function analyzeUnguarded(
 
   let result: ScanResult | null = null
   let pipelineUnreachable = false
+  let pipelineUnreachableMessage: string | null = null
   const remote = await runRemotePipeline({
     raw: outcome.value.raw,
     path: 'cloud',
@@ -199,6 +200,16 @@ async function analyzeUnguarded(
     // The deterministic stages live on the PC now. Saying "the model answered in
     // a shape we could not use" here would blame the wrong component.
     pipelineUnreachable = remote.kind === 'server_unreachable'
+    if (remote.kind === 'server_unreachable') {
+      // reason 'http' means the server ANSWERED — a live host that isn't the
+      // food server, a 500, or a version-skewed server missing /pipeline. That
+      // is not "is the PC on?"; show what it actually said (search-outcome.ts
+      // sets the same precedent for /search).
+      pipelineUnreachableMessage =
+        remote.reason === 'http'
+          ? remote.detail
+          : `${UNREACHABLE_COPY} The photo was analyzed, but the food database could not be reached to price it. Nothing was logged.`
+    }
     result = null
   }
 
@@ -206,9 +217,9 @@ async function analyzeUnguarded(
     setPhase({
       kind: 'failed',
       photoUri,
-      message: pipelineUnreachable
-        ? `${UNREACHABLE_COPY} The photo was analyzed, but the food database could not be reached to price it. Nothing was logged.`
-        : 'The model answered in a shape we could not use. This one is on us — try once more.',
+      message:
+        pipelineUnreachableMessage ??
+        'The model answered in a shape we could not use. This one is on us — try once more.',
       canRetry: !pipelineUnreachable,
     })
     return
@@ -433,10 +444,17 @@ async function startBarcodeScanUnguarded(gtin: string): Promise<void> {
   const found = await lookupBarcode(gtin)
 
   if (found.kind === 'server_unreachable') {
+    // reason 'http' means the server ANSWERED — a live host that isn't the
+    // food server, a 500, or a version-skewed server missing /barcode. Show
+    // what it actually said instead of blaming the PC being off (same
+    // precedent as search-outcome.ts:33-36 for the search screen).
     setPhase({
       kind: 'failed',
       photoUri: '',
-      message: `${UNREACHABLE_COPY} Nothing was looked up. Search by name once it is back, or enter this food by hand.`,
+      message:
+        found.reason === 'http'
+          ? found.detail
+          : `${UNREACHABLE_COPY} Nothing was looked up. Search by name once it is back, or enter this food by hand.`,
       canRetry: false,
     })
     return
