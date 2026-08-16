@@ -19,9 +19,6 @@
   "scripts": {
     "build": "tsc --build"
   },
-  "dependencies": {
-    "@nutai/core-schema": "*"
-  },
   "peerDependencies": {
     "better-sqlite3": "*"
   },

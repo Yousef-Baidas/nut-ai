@@ -9,10 +9,10 @@ import { OptionCard } from './Controls'
 /**
  * Every single-choice screen in the flow.
  *
- * Thirteen of the twenty onboarding screens are the same object: a question, a
- * list of glyph-and-label cards, one selection, one Continue. Writing them
- * thirteen times would guarantee they drift apart — a padding here, a disabled
- * rule there — which is exactly the inconsistency that makes a flow feel cheap.
+ * Five of the flow's nineteen steps are the same object: a question, a list of
+ * glyph-and-label cards, one selection, one Continue. Writing them five times
+ * would let them drift apart — a padding here, a disabled rule there — which is
+ * exactly the inconsistency that makes a flow feel cheap.
  */
 export interface Option<V extends string> {
   value: V
