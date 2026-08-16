@@ -391,7 +391,7 @@ function readyFromRows(
     // hardcoded 'tight' that overstates a zero-width manual-entry band or
     // understates a wide relogged vision-model band.
     tier: bandTier(r.bandHalfPct),
-    reasons: [bandReasonFor(r.origin)],
+    reasons: [bandReasonFor(r.origin, r.dbSource)],
   }))
   const { totals, mealBand } = recomputeAfterEdit(meal, bands)
   const result: ScanResult = {

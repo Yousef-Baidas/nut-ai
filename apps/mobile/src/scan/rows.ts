@@ -27,6 +27,25 @@ export interface CorpusFoodRow {
   fiber_g: number | null
   sugar_g: number | null
   sodium_mg: number | null
+  /** `foods.source` — feeds `attributionFor`. Absent only for pre-existing callers. */
+  source?: string | null
+}
+
+/**
+ * Honest per-source attribution text. ResolvedFood/CorpusFoodRow carry
+ * `source`, which names the actual origin of a corpus row — collapsing every
+ * hit to "USDA" is simply false for the majority-share Open Food Facts tier.
+ *
+ * `source` values seen in practice: 'off' (Open Food Facts), 'fdc_branded' /
+ * 'fdc_foundation' / 'fdc_sr_legacy' (USDA), 'arab_curated' (the checked-in,
+ * cited CSV). Anything else (null, a future tier) falls back to a name that is
+ * never wrong, just less specific.
+ */
+export function attributionFor(source: string | null | undefined): string {
+  if (source === 'off') return 'Open Food Facts'
+  if (source === 'arab_curated') return 'a cited food-composition table'
+  if (source != null && (source.startsWith('fdc') || source.startsWith('usda'))) return 'USDA'
+  return 'a food database'
 }
 
 /** What the manual-entry form produces, once validated. Figures are PER PORTION. */
@@ -62,8 +81,9 @@ export function rowFromCorpusFood(food: CorpusFoodRow, grams: number, now: numbe
       sodium_mg: food.sodium_mg,
     },
     origin: 'db_search',
+    dbSource: food.source ?? null,
     gramPathway: 'user_edited',
-    // USDA generic-tier variation, not model uncertainty: the food is exact,
+    // Corpus generic-tier variation, not model uncertainty: the food is exact,
     // the specimen on the plate is not.
     bandHalfPct: 0.05,
     isEstimate: false,
@@ -123,18 +143,18 @@ export function scaleRows(
  * through to the barcode string for those would claim a barcode match that
  * never happened.
  */
-export function bandReasonFor(origin: IngredientRow['origin']): string {
+export function bandReasonFor(origin: IngredientRow['origin'], dbSource?: string | null): string {
   switch (origin) {
     case 'label_ocr':
       return 'Transcribed from the printed nutrition label'
     case 'web_lookup':
       return 'Transcribed from published nutrition facts'
     case 'db_search':
-      return 'Matched to a USDA corpus food, at a portion you chose'
+      return `Matched to a food-database result (${attributionFor(dbSource)}), at a portion you chose`
     case 'manual_custom':
       return 'Numbers you entered yourself'
     case 'barcode':
-      return 'Matched by barcode to a labeled product'
+      return `Matched by barcode to a labeled product (${attributionFor(dbSource)})`
     case 'vision_model':
     case 'assumption_filler':
       return 'Estimated from the photo'
@@ -160,6 +180,7 @@ export function corpusRowFromResolved(food: {
   fiberG: number | null
   sugarG: number | null
   sodiumMg: number | null
+  source?: string | null
 }): CorpusFoodRow {
   return {
     id: food.foodId,
@@ -171,6 +192,7 @@ export function corpusRowFromResolved(food: {
     fiber_g: food.fiberG,
     sugar_g: food.sugarG,
     sodium_mg: food.sodiumMg,
+    source: food.source ?? null,
   }
 }
 

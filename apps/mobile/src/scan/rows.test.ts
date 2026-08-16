@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { bandTier } from '@nutai/confidence'
 import type { IngredientRow } from '@nutai/core-schema'
 import {
+  attributionFor,
   bandReasonFor,
   resolutionFor,
   rowFromCorpusFood,
@@ -143,17 +144,51 @@ describe('bandReasonFor', () => {
   })
 
   it('keeps the barcode claim explicit, not a fallback default', () => {
-    expect(bandReasonFor('barcode')).toBe('Matched by barcode to a labeled product')
+    expect(bandReasonFor('barcode', 'fdc_branded')).toBe('Matched by barcode to a labeled product (USDA)')
   })
 
   it('gives every keyless origin its own honest reason', () => {
-    expect(bandReasonFor('db_search')).toBe('Matched to a USDA corpus food, at a portion you chose')
+    expect(bandReasonFor('db_search', 'fdc_sr_legacy')).toBe(
+      'Matched to a food-database result (USDA), at a portion you chose',
+    )
     expect(bandReasonFor('manual_custom')).toBe('Numbers you entered yourself')
   })
 
   it('gives label_ocr and web_lookup their transcription reasons', () => {
     expect(bandReasonFor('label_ocr')).toBe('Transcribed from the printed nutrition label')
     expect(bandReasonFor('web_lookup')).toBe('Transcribed from published nutrition facts')
+  })
+
+  it('never claims USDA for an Open Food Facts row (I2)', () => {
+    expect(bandReasonFor('db_search', 'off')).toBe(
+      'Matched to a food-database result (Open Food Facts), at a portion you chose',
+    )
+    expect(bandReasonFor('barcode', 'off')).toBe('Matched by barcode to a labeled product (Open Food Facts)')
+  })
+
+  it('falls back to a name that is never wrong when the source is absent or unrecognized', () => {
+    expect(bandReasonFor('db_search', null)).toBe(
+      'Matched to a food-database result (a food database), at a portion you chose',
+    )
+    expect(bandReasonFor('db_search', undefined)).toBe(
+      'Matched to a food-database result (a food database), at a portion you chose',
+    )
+  })
+})
+
+describe('attributionFor', () => {
+  it('maps every known corpus source to its real attribution', () => {
+    expect(attributionFor('off')).toBe('Open Food Facts')
+    expect(attributionFor('fdc_branded')).toBe('USDA')
+    expect(attributionFor('fdc_foundation')).toBe('USDA')
+    expect(attributionFor('fdc_sr_legacy')).toBe('USDA')
+    expect(attributionFor('arab_curated')).toBe('a cited food-composition table')
+  })
+
+  it('never fabricates a specific source for the unknown case', () => {
+    expect(attributionFor(null)).toBe('a food database')
+    expect(attributionFor(undefined)).toBe('a food database')
+    expect(attributionFor('some_future_tier')).toBe('a food database')
   })
 })
 

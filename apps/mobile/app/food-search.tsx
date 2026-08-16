@@ -12,7 +12,7 @@ import {
   type Health,
 } from '../src/data/food-server'
 import { DEFAULT_PORTION_GRAMS, toPortionOptions, type PortionOption } from '../src/db/portion-options'
-import { corpusRowFromResolved } from '../src/scan/rows'
+import { attributionFor, corpusRowFromResolved } from '../src/scan/rows'
 import { startSearchLog } from '../src/scan/orchestrator'
 import { CLEARED_SEARCH_STATE, searchOutcomeState } from '../src/scan/search-outcome'
 import { useTheme } from '../src/theme/ThemeProvider'
@@ -39,7 +39,9 @@ export default function FoodSearch() {
   const [outcome, setOutcome] = useState<string>('')
   const [unreachable, setUnreachable] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [pending, setPending] = useState<{ candidate: ScoredCandidate; options: PortionOption[] } | null>(null)
+  const [pending, setPending] = useState<
+    { candidate: ScoredCandidate; options: PortionOption[]; source: string | null } | null
+  >(null)
 
   useEffect(() => {
     let alive = true
@@ -99,7 +101,11 @@ export default function FoodSearch() {
    */
   function openPortionSheet(candidate: ScoredCandidate) {
     const detail = details[candidate.foodId]
-    setPending({ candidate, options: detail == null ? [] : toPortionOptions(detail.portions) })
+    setPending({
+      candidate,
+      options: detail == null ? [] : toPortionOptions(detail.portions),
+      source: detail?.food.source ?? null,
+    })
   }
 
   function confirmPortion(grams: number) {
@@ -207,7 +213,7 @@ export default function FoodSearch() {
           title={pending.candidate.name}
           subtitle={
             pending.candidate.energyKcal != null
-              ? `${Math.round(pending.candidate.energyKcal)} kcal / 100 g · USDA`
+              ? `${Math.round(pending.candidate.energyKcal)} kcal / 100 g · ${attributionFor(pending.source)}`
               : 'Energy not reported for this food'
           }
           options={pending.options}

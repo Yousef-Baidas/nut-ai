@@ -298,7 +298,7 @@ export default function Profile() {
 
       <Section title="About">
         <Row label="License" value="AGPL-3.0" />
-        <Row label="Nutrition data" value="USDA, CC0" />
+        <Row label="Nutrition data" value="USDA (CC0) + Open Food Facts (ODbL) + curated-cited" />
       </Section>
 
       <Text style={[type.caption, { color: theme.textFaint, marginTop: space.xl, lineHeight: 19 }]}>

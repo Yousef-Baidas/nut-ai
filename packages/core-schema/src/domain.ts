@@ -101,6 +101,13 @@ export interface IngredientRow {
   origin: IngredientOrigin
   /** Where a web_lookup row's numbers were transcribed from. Shown in the UI. */
   sourceUrl?: string | null
+  /**
+   * The corpus `foods.source` value ('off' | 'fdc_branded' | 'fdc_foundation' |
+   * 'fdc_sr_legacy' | 'arab_curated') for a `db_search`/`barcode` row. Drives
+   * honest per-row attribution (`attributionFor` in apps/mobile/src/scan/rows.ts)
+   * instead of a hardcoded "USDA" that is false for Open Food Facts rows.
+   */
+  dbSource?: string | null
   gramPathway: GramPathway
   /** Half-width of this row's uncertainty band, as a fraction. §7.2. */
   bandHalfPct: number
