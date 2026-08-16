@@ -47,7 +47,15 @@ export const WEIGHTS = {
   categoryPrior: 0.1,
   portionPlausibility: 0.1,
   popularityPrior: 0.1,
-  /** v1.x only. Zero for now; the remaining weights already sum to 1.0. */
+  /**
+   * v1.x only, zero for now. The six live weights sum to 0.95 — that IS the
+   * reachable ceiling, and AUTO_ACCEPT.minScore (0.6) is calibrated against
+   * it. (basisAmbiguityPenalty is subtracted, never summed, so it is not part
+   * of the ceiling.) An earlier version of this comment claimed the weights
+   * sum to 1.0; issue #11 caught that. When embeddingCosine goes live, the
+   * weights must be renormalized and minScore recalibrated together — against
+   * the eval harness, not by eye.
+   */
   embeddingCosine: 0,
   basisAmbiguityPenalty: 0.15,
 } as const
