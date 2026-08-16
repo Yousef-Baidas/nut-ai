@@ -94,10 +94,11 @@ label reading and receipt reading are provider vision calls; there is no on-devi
 build, and the label scanner fails fast and says so rather than pretending otherwise. Fix Result,
 Describe and the web lookup are provider text calls.
 
-**Barcode is a special case worth stating plainly.** The lookup is local-first and costs nothing
-on a hit, but the shipped corpus is USDA generic-tier (`fdc_foundation` + `fdc_sr_legacy`) and
-carries **zero barcodes** — so in practice a scan either falls to a keyed web lookup or lands on
-a screen that says so and offers text search and manual entry. See
+**Barcode is a special case worth stating plainly.** The lookup is local-first against your PC's
+full corpus — roughly a million canonical GTINs from Open Food Facts and USDA Branded — and costs
+nothing on a hit. Barcodes are stored normalized (13-digit GTIN), so UPC-A, EAN-8 and GTIN-14
+scans of the same product all resolve to one row. On a genuine miss the scan falls to the keyed
+web lookup, or lands on a screen that says so and offers text search and manual entry. See
 [`THIRD-PARTY-DATA.md`](THIRD-PARTY-DATA.md).
 
 ## What we deliberately do not clone
