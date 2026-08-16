@@ -13,7 +13,7 @@ import type { PersonalPrior } from './types.js'
  * frequency tables, median gram weights. Plain SQLite and arithmetic. Zero
  * dependency on fine-tuning infrastructure, provider personalization APIs, or
  * on-device training. And because it sits strictly BELOW the inference call, it
- * works identically on Path A and Path B by construction.
+ * works identically on the cloud and local paths by construction.
  */
 
 /** Recency weight. Dishware and portion habits genuinely change over time. */

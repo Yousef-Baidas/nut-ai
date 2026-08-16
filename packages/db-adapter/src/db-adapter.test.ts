@@ -8,8 +8,8 @@ describe('capabilities are detected, never assumed', () => {
   it('confirms FTS5 and the trigram tokenizer are available', async () => {
     const db = openMemoryDb()
     const caps = await detectCapabilities(db)
-    // FTS5 is REQUIRED. If this ever fails, the M0.5 gate says switch to
-    // op-sqlite here and nowhere later.
+    // FTS5 is REQUIRED. If this ever fails, the inherited plan's ruling (II,
+    // the "M0.5 gate") says switch to op-sqlite here and nowhere later.
     expect(caps.fts5).toBe(true)
     expect(caps.fts5Trigram).toBe(true)
     expect(caps.sqliteVersion).toMatch(/^\d+\.\d+/)

@@ -13,7 +13,10 @@ import {
 } from '@nutai/prompt'
 
 /**
- * Path A — the cloud inference client.
+ * The cloud inference client — the inherited design's "Path A". Its sibling,
+ * on-device model inference ("Path B"), is out of scope in this fork; the
+ * `'local'` value of InferencePath now names the deterministic no-model
+ * pipeline instead.
  *
  * SPEC-accuracy-engine.md §3, PLAN.md D10. A thin wrapper over React Native's
  * `fetch`, deliberately NOT the vendor Node SDKs: those assume Node runtime

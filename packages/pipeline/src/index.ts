@@ -47,8 +47,8 @@ import { toDisplayTotalsForMeal, type DisplayTotals } from '@nutai/totals'
  *   [9] RESULT + REPAIR    questions and pre-answered chips
  *
  * NOTHING AFTER STAGE 3 BRANCHES ON `path` except to render a badge and widen a
- * band. That is the entire point of the architecture: Path A and Path B converge
- * on one VisionPayload and share every line of code below it.
+ * band. That is the entire point of the architecture: the cloud and local paths
+ * converge on one VisionPayload and share every line of code below it.
  */
 
 export interface PipelineDeps {

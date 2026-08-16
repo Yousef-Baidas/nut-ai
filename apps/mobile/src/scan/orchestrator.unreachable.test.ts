@@ -33,7 +33,7 @@ vi.mock('../data/repo', () => ({
   putSetting: async () => {},
 }))
 vi.mock('../inference/credentials', () => ({ loadCredential: (...args: unknown[]) => loadCredential(...args) }))
-vi.mock('../inference/pathA/client', () => {
+vi.mock('../inference/cloud/client', () => {
   const boom = () => { throw new Error('a keyless path must never call a provider') }
   return {
     runLabelScan: boom,

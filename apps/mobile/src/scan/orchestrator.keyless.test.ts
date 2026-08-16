@@ -57,7 +57,7 @@ vi.mock('../data/repo', () => ({
 
 vi.mock('../inference/credentials', () => ({ loadCredential: async () => null }))
 
-vi.mock('../inference/pathA/client', () => {
+vi.mock('../inference/cloud/client', () => {
   const boom = () => { throw new Error('a keyless path must never call a provider') }
   return { runLabelScan: boom, runReceiptScan: boom, runScanWithFallback: boom, runWebLookup: boom }
 })

@@ -8,8 +8,9 @@
  *   calorie or macro number.
  *
  * Everything good downstream falls out of that:
- *   - Corrections are free, instant, and offline forever, on BOTH inference
- *     paths, because a correction is arithmetic over values already on device.
+ *   - Corrections are free, instant, and offline forever — whether the scan
+ *     came from a cloud model or the deterministic local pipeline — because a
+ *     correction is arithmetic over values already on device.
  *   - Historical logs never silently change when the nutrition database updates,
  *     because the snapshot was copied at add time and is immutable thereafter.
  *   - Saved meals survive any database update for the same reason.

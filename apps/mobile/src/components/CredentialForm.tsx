@@ -4,7 +4,7 @@ import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, Text
 import { cheapestModel, type ProviderId } from '@nutai/prompt'
 import { putSetting } from '../data/repo'
 import { looksPlausible, saveCredential, type CredentialKind } from '../inference/credentials'
-import { validateCredential } from '../inference/pathA/validate'
+import { validateCredential } from '../inference/cloud/validate'
 import { useTheme } from '../theme/ThemeProvider'
 import { radius, space, type } from '../theme/tokens'
 import { Icon } from './Icon'

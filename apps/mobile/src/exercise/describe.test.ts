@@ -31,7 +31,7 @@ vi.mock('../inference/credentials', () => ({
   },
 }))
 
-vi.mock('../inference/pathA/client', () => ({
+vi.mock('../inference/cloud/client', () => ({
   runExerciseEstimate: async () => runOutcome,
 }))
 

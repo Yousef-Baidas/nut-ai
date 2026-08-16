@@ -218,8 +218,8 @@ export function computeBand(input: ComputeBandInput): Band {
     half *= 0.85
   }
 
-  // 5. Path widening. Path B's closed vocabulary is a real constraint, not an
-  //    arbitrary penalty.
+  // 5. Path widening. The local path's closed vocabulary is a real constraint,
+  //    not an arbitrary penalty.
   if (path === 'local') half *= baselines.localPathMultiplier
 
   // 6. Personal-prior narrowing — the ONLY mechanism that can beat the population

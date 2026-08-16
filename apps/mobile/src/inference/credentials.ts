@@ -14,7 +14,7 @@ import type { ProviderId } from '@nutai/prompt'
  *   .env, or EAS secrets — anything in those ships inside the bundle and is
  *   readable by anyone who downloads the app.
  *
- *   Read at exactly ONE place (the Path A request builder) and sent to exactly
+ *   Read at exactly ONE place (the cloud request builder) and sent to exactly
  *   one destination: the provider the user named.
  *
  * The biometric gate is on REVEAL/EDIT in settings only, never on read-for-scan.

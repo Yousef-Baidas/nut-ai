@@ -5,7 +5,7 @@ import type { ScanResult } from '@nutai/pipeline'
 import { recomputeAfterEdit } from '@nutai/pipeline'
 import type { SelectedQuestion } from '@nutai/repair'
 import { useSyncExternalStore } from 'react'
-import type { ScanFailureKind } from '../inference/pathA/client'
+import type { ScanFailureKind } from '../inference/cloud/client'
 
 /**
  * The in-flight scan.
@@ -18,7 +18,7 @@ import type { ScanFailureKind } from '../inference/pathA/client'
  * THE INVARIANT THIS FILE EXISTS TO PROTECT: every mutation below runs
  * `recomputeAfterEdit` locally and synchronously. No network call, no database
  * read, no model call. That is what makes correction free, instant, offline, and
- * identical on both inference paths — and it is only possible because every row
+ * identical whatever produced the scan — and it is only possible because every row
  * already carries its own per-100 g snapshot.
  */
 
