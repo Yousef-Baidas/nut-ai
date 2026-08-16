@@ -23,6 +23,7 @@
     "data:build": "node tools/nutrition-data/src/build.mjs",
     "data:build:full": "npm run build:packages && node tools/nutrition-data/src/build-full.mjs",
     "data:verify": "node tools/nutrition-data/src/golden-queries.mjs",
+    "data:backfill-portions": "npm run build:packages && node tools/nutrition-data/src/backfill-portions.mjs",
     "build:packages": "tsc --build packages/core-schema packages/db-adapter packages/clamp packages/resolver",
     "build:server": "tsc --build apps/food-server",
     "food-server": "npm run build:server && node apps/food-server/dist/server.js",

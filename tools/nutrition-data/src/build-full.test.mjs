@@ -3,7 +3,15 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ingestOff, insertFood, loadSchema, openFullDb, readCheckpoint, writeManifestSummary } from './build-full.mjs'
+import {
+  backfillPortions,
+  ingestOff,
+  insertFood,
+  loadSchema,
+  openFullDb,
+  readCheckpoint,
+  writeManifestSummary,
+} from './build-full.mjs'
 
 const LINES = [
   { code: '6281006012011', product_name: 'Almarai Fresh Laban', brands: 'Almarai',
@@ -151,5 +159,67 @@ describe('writeManifestSummary', () => {
     expect(Number(readCheckpoint(db, 'counts.arab_curated'))).toBe(1)
     expect(readCheckpoint(db, 'counts.fdc_branded')).toBeNull() // none ingested in this fixture
     expect(Number(readCheckpoint(db, 'dedup.branded_lost_to_off'))).toBe(3)
+  })
+
+  it('writes portion_count and barcode_count so /health need not COUNT(*) per request', async () => {
+    const { gz, db } = await fixture()
+    await ingestOff({ db, jsonlGzPath: gz }) // 2 off rows, both carry a barcode
+
+    insertFood(db, {
+      source: 'arab_curated', sourceId: 'ful_medames', name: 'Ful medames', brand: null,
+      tier: 'arab_curated', license: 'curated-cited', barcode: null, category: 'legume',
+      kcal: 110, protein: 7.6, fat: 0.5, satFat: null, carb: 17.8, fiber: 5.4, sugar: 0.5,
+      sodiumMg: 320, servingSizeG: 250, servingDesc: '1 bowl', completeness: 1, synonyms: ['ful'],
+    }, Date.now())
+
+    backfillPortions(db)
+    writeManifestSummary(db, { branded: { dedupedToOff: 0 } })
+
+    expect(Number(readCheckpoint(db, 'portion_count'))).toBe(1) // only the arab row has a serving_size_g
+    expect(Number(readCheckpoint(db, 'barcode_count'))).toBe(2) // the two off rows
+  })
+})
+
+describe('backfillPortions', () => {
+  it('derives one serving portion per food with a serving_size_g, and none for foods without one', async () => {
+    const { db } = await fixture()
+    const now = Date.now()
+    insertFood(db, {
+      source: 'off', sourceId: 'p1', name: 'Yogurt Cup', brand: null, tier: 'off',
+      license: 'ODbL-1.0', barcode: '1234567890123', category: 'dairy',
+      kcal: 90, protein: 5, fat: 3, satFat: null, carb: 8, fiber: 0, sugar: 8,
+      sodiumMg: 60, servingSizeG: 150, servingDesc: '1 cup', completeness: 1, synonyms: [],
+    }, now)
+    insertFood(db, {
+      source: 'off', sourceId: 'p2', name: 'No Serving Size', brand: null, tier: 'off',
+      license: 'ODbL-1.0', barcode: '9999999999999', category: 'dairy',
+      kcal: 50, protein: 1, fat: 1, satFat: null, carb: 5, fiber: 0, sugar: 2,
+      sodiumMg: 10, servingSizeG: null, servingDesc: null, completeness: 1, synonyms: [],
+    }, now)
+
+    const inserted = backfillPortions(db)
+    expect(inserted).toBe(1)
+
+    const rows = db.prepare('SELECT food_id, measure_unit, modifier, gram_weight FROM food_portions').all()
+    expect(rows).toHaveLength(1)
+    expect(rows[0].measure_unit).toBe('serving')
+    expect(rows[0].modifier).toBe('1 cup')
+    expect(rows[0].gram_weight).toBe(150)
+  })
+
+  it('is idempotent: re-running does not duplicate rows', async () => {
+    const { db } = await fixture()
+    insertFood(db, {
+      source: 'off', sourceId: 'p1', name: 'Yogurt Cup', brand: null, tier: 'off',
+      license: 'ODbL-1.0', barcode: '1234567890123', category: 'dairy',
+      kcal: 90, protein: 5, fat: 3, satFat: null, carb: 8, fiber: 0, sugar: 8,
+      sodiumMg: 60, servingSizeG: 150, servingDesc: '1 cup', completeness: 1, synonyms: [],
+    }, Date.now())
+
+    backfillPortions(db)
+    backfillPortions(db)
+
+    const count = db.prepare('SELECT COUNT(*) c FROM food_portions').get().c
+    expect(count).toBe(1)
   })
 })

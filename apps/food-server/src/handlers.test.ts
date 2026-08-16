@@ -32,6 +32,18 @@ describe('handleHealth', () => {
     expect(h.foods).toBe(15)
     expect(h.tiers).toEqual(['arab_curated', 'off'])
   })
+
+  it('prefers the build_manifest portion_count/barcode_count rows over a live table scan, when present', async () => {
+    // Same disagree-on-purpose trick as the tier-counts test above: the live
+    // fixture has 2 portions and 1 barcode, so a value that only matches
+    // 99/42 proves the manifest row was read, not recomputed.
+    await db.run("INSERT INTO build_manifest (key, value) VALUES ('portion_count', '99')")
+    await db.run("INSERT INTO build_manifest (key, value) VALUES ('barcode_count', '42')")
+
+    const h = await handleHealth(db)
+    expect(h.portions).toBe(99)
+    expect(h.barcodes).toBe(42)
+  })
 })
 
 describe('handleSearch', () => {

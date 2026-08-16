@@ -86,10 +86,60 @@ export function writeCheckpoint(db, key, value) {
  * can read "how many of each tier actually landed" without re-deriving it from
  * a live `COUNT(*) ... GROUP BY tier` query against a multi-gigabyte database.
  */
+/**
+ * /health prefers these two manifest keys over a per-request COUNT(*) scan of
+ * a multi-gigabyte table (same pattern as counts.<tier>). Split out of
+ * writeManifestSummary so the standalone backfill script (which has no
+ * `branded` ingest-stats object) can write them too, without a full rebuild.
+ */
+export function writePortionBarcodeCounts(db) {
+  const portionCount = db.prepare('SELECT COUNT(*) AS c FROM food_portions').get().c
+  const barcodeCount = db.prepare('SELECT COUNT(*) AS c FROM foods WHERE barcode IS NOT NULL').get().c
+  writeCheckpoint(db, 'portion_count', portionCount)
+  writeCheckpoint(db, 'barcode_count', barcodeCount)
+  return { portionCount, barcodeCount }
+}
+
 export function writeManifestSummary(db, { branded }) {
   const tierCounts = db.prepare('SELECT tier, COUNT(*) AS c FROM foods GROUP BY tier').all()
   for (const { tier, c } of tierCounts) writeCheckpoint(db, `counts.${tier ?? 'unknown'}`, c)
   writeCheckpoint(db, 'dedup.branded_lost_to_off', branded.dedupedToOff)
+  writePortionBarcodeCounts(db)
+}
+
+/**
+ * Derive one household-measure portion per food from data the ingest already
+ * has — `serving_size_g` — rather than a real FNDDS portion table.
+ *
+ * build-full.mjs never wrote `food_portions` at all (only the small
+ * build.mjs did, from FNDDS), so on the full corpus: the pipeline's
+ * household-measure grams were dead, `/search` details[].portions was
+ * always [], the PortionSheet always opened empty, and `/health` reported
+ * portions: 0. This is not as good as real FNDDS portion data, but "one
+ * honest serving-size portion" beats "none at all" for every row that has a
+ * serving size.
+ *
+ * Idempotent by construction: it only ever owns rows tagged
+ * `measure_unit = 'serving'`, so re-running it (e.g. after a rebuild) first
+ * deletes exactly the rows it previously wrote and reinserts current data —
+ * safe to run against a resident database, safe to run twice in a row.
+ */
+export function backfillPortions(db) {
+  db.prepare("DELETE FROM food_portions WHERE measure_unit = 'serving'").run()
+  const rows = db
+    .prepare('SELECT id, serving_size_g, serving_desc FROM foods WHERE serving_size_g IS NOT NULL AND serving_size_g > 0')
+    .all()
+  const insert = db.prepare(
+    `INSERT INTO food_portions (food_id, measure_unit, modifier, amount, gram_weight, is_fndds_default)
+     VALUES (?,?,?,?,?,0)`,
+  )
+  const tx = db.transaction((portionRows) => {
+    for (const row of portionRows) {
+      insert.run(row.id, 'serving', row.serving_desc ?? null, 1, row.serving_size_g)
+    }
+  })
+  tx(rows)
+  return rows.length
 }
 
 /**
@@ -337,6 +387,8 @@ async function main() {
   writeCheckpoint(db, 'licenses', 'ODbL-1.0 (Open Food Facts) | CC0-1.0 (USDA FDC) | curated-cited (arab_curated)')
   writeCheckpoint(db, 'dedup_rule', 'same GTIN: the off row wins over fdc_branded')
   writeCheckpoint(db, 'schema_version', '1')
+  const portionsBackfilled = backfillPortions(db)
+  console.log(`  portions: ${portionsBackfilled} rows backfilled from serving_size_g`)
   writeManifestSummary(db, { branded })
   writeCheckpoint(db, 'built_at', new Date().toISOString())
   db.close()
