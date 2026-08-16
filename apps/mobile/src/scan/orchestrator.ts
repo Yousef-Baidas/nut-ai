@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator'
-import { bandTier, SEEDED_BASELINES, type Band } from '@nutai/confidence'
+import { bandTier, type Band } from '@nutai/confidence'
 import {
   LabelPayloadZ,
   ReceiptPayloadZ,
@@ -8,7 +8,6 @@ import {
   type IngredientRow,
   type LoggedMeal,
 } from '@nutai/core-schema'
-import type { PersonalPriors } from '@nutai/gram-engine'
 import {
   anthropicWireSchema,
   cheapestModel,
@@ -18,15 +17,15 @@ import {
   RECEIPT_SCAN_PROMPT_VERSION,
   type ProviderId,
 } from '@nutai/prompt'
-import { recomputeAfterEdit, runPipeline, validatePayload, type ScanResult } from '@nutai/pipeline'
-import { openNutritionDb } from '../db/expo-adapter'
-import { loadFoodDb } from '../db/portions'
+import { recomputeAfterEdit, validatePayload, type ScanResult } from '@nutai/pipeline'
+import { UNREACHABLE_COPY, lookupBarcode, runRemotePipeline } from '../data/food-server'
 import { setting } from '../data/repo'
 import { loadCredential, type StoredCredential } from '../inference/credentials'
 import { runLabelScan, runReceiptScan, runScanWithFallback, runWebLookup } from '../inference/pathA/client'
 import { applyWebOption, getPhase, setPhase, setWebLookup } from './store'
 import {
   bandReasonFor,
+  corpusRowFromResolved,
   resolutionFor,
   rowFromCorpusFood,
   rowFromManualEntry,
@@ -46,7 +45,7 @@ export type { ManualEntry } from './rows'
  *
  *   preparing    resize + EXIF-bake + base64 (local, fast)
  *   identifying  the one model call — the only stage that owns wall-clock time
- *   matching     the deterministic pipeline against the bundled USDA corpus
+ *   matching     the deterministic pipeline, run on the PC food server
  *   ready        review screen, editable rows
  *   (background) web-search refinement for items the corpus missed
  *
@@ -54,8 +53,6 @@ export type { ManualEntry } from './rows'
  * source URL. It replaces AI-estimate rows — the weakest rows on the screen —
  * with cited label data, and never touches a row the database already matched.
  */
-
-const EMPTY_PRIORS: PersonalPriors = { get: () => null, containers: new Map() }
 
 /** Kept for retry, so a network blip does not re-run image preprocessing. */
 let lastCapture: { photoUri: string; base64: string } | null = null
@@ -190,21 +187,29 @@ async function analyzeUnguarded(
   setPhase({ kind: 'analyzing', photoUri, stage: 'matching' })
 
   let result: ScanResult | null = null
-  try {
-    const nutritionDb = await openNutritionDb()
-    const foodDb = await loadFoodDb(nutritionDb)
-    result = await runPipeline(
-      outcome.value.raw,
-      {
-        db: nutritionDb,
-        priors: EMPTY_PRIORS,
-        baselines: SEEDED_BASELINES,
-        path: 'cloud',
-        now: Date.now(),
-      },
-      foodDb,
-    )
-  } catch {
+  let pipelineUnreachable = false
+  let pipelineUnreachableMessage: string | null = null
+  const remote = await runRemotePipeline({
+    raw: outcome.value.raw,
+    path: 'cloud',
+    now: Date.now(),
+  })
+  if (remote.kind === 'ok') {
+    result = remote.value.result as ScanResult
+  } else {
+    // The deterministic stages live on the PC now. Saying "the model answered in
+    // a shape we could not use" here would blame the wrong component.
+    pipelineUnreachable = remote.kind === 'server_unreachable'
+    if (remote.kind === 'server_unreachable') {
+      // reason 'http' means the server ANSWERED — a live host that isn't the
+      // food server, a 500, or a version-skewed server missing /pipeline. That
+      // is not "is the PC on?"; show what it actually said (search-outcome.ts
+      // sets the same precedent for /search).
+      pipelineUnreachableMessage =
+        remote.reason === 'http'
+          ? remote.detail
+          : `${UNREACHABLE_COPY} The photo was analyzed, but the food database could not be reached to price it. Nothing was logged.`
+    }
     result = null
   }
 
@@ -212,9 +217,10 @@ async function analyzeUnguarded(
     setPhase({
       kind: 'failed',
       photoUri,
-      message: 'The model answered in a shape we could not use. This one is on us — try once more.',
-      canRetry: true,
-      failureKind: 'schema-violation',
+      message:
+        pipelineUnreachableMessage ??
+        'The model answered in a shape we could not use. This one is on us — try once more.',
+      canRetry: !pipelineUnreachable,
     })
     return
   }
@@ -385,7 +391,7 @@ function readyFromRows(
     // hardcoded 'tight' that overstates a zero-width manual-entry band or
     // understates a wide relogged vision-model band.
     tier: bandTier(r.bandHalfPct),
-    reasons: [bandReasonFor(r.origin)],
+    reasons: [bandReasonFor(r.origin, r.dbSource)],
   }))
   const { totals, mealBand } = recomputeAfterEdit(meal, bands)
   const result: ScanResult = {
@@ -407,23 +413,11 @@ function readyFromRows(
   setPhase({ kind: 'ready', photoUri, result, bands, meta: null, webLookups })
 }
 
-interface BarcodeFoodRow {
-  id: number
-  name: string
-  serving_size_g: number | null
-  energy_kcal: number | null
-  protein_g: number | null
-  fat_g: number | null
-  carb_g: number | null
-  fiber_g: number | null
-  sugar_g: number | null
-  sodium_mg: number | null
-}
-
 /**
- * Barcode: corpus GTIN hit costs NOTHING — no model call, no network. A miss
- * falls to one web search when a key exists, and to a clear pointer at the
- * label scanner when it does not.
+ * Barcode: a food-server GTIN hit costs no model call — one LAN request to the
+ * PC. A miss falls to one web search when a key exists, and to a clear pointer
+ * at the label scanner when it does not; the server being unreachable is its
+ * own named outcome, distinct from a genuine miss.
  */
 export async function startBarcodeScan(gtin: string): Promise<void> {
   try {
@@ -447,41 +441,34 @@ export async function startBarcodeScan(gtin: string): Promise<void> {
 async function startBarcodeScanUnguarded(gtin: string): Promise<void> {
   setPhase({ kind: 'analyzing', photoUri: '', stage: 'matching' })
 
-  let food: BarcodeFoodRow | null = null
-  try {
-    const ndb = await openNutritionDb()
-    food = await ndb.get<BarcodeFoodRow>(
-      `SELECT id, name, serving_size_g, energy_kcal, protein_g, fat_g, carb_g, fiber_g, sugar_g, sodium_mg
-       FROM foods WHERE barcode = ? LIMIT 1`,
-      [gtin],
-    )
-  } catch {
-    food = null
+  const found = await lookupBarcode(gtin)
+
+  if (found.kind === 'server_unreachable') {
+    // reason 'http' means the server ANSWERED — a live host that isn't the
+    // food server, a 500, or a version-skewed server missing /barcode. Show
+    // what it actually said instead of blaming the PC being off (same
+    // precedent as search-outcome.ts:33-36 for the search screen).
+    setPhase({
+      kind: 'failed',
+      photoUri: '',
+      message:
+        found.reason === 'http'
+          ? found.detail
+          : `${UNREACHABLE_COPY} Nothing was looked up. Search by name once it is back, or enter this food by hand.`,
+      canRetry: false,
+    })
+    return
   }
 
-  if (food && food.energy_kcal != null) {
-    const grams = food.serving_size_g ?? 100
+  if (found.kind === 'ok' && found.value.food.energyKcal != null) {
+    const food = found.value.food
+    const grams = food.servingSizeG ?? 100
     readyFromRows(
       [
         {
-          id: `row_${Date.now()}`,
-          displayName: food.name,
-          sourceFoodId: String(food.id),
-          grams,
-          nutrientSnapshot: {
-            kcal: food.energy_kcal,
-            protein_g: food.protein_g ?? 0,
-            fat_g: food.fat_g ?? 0,
-            carbs_g: food.carb_g ?? 0,
-            fiber_g: food.fiber_g,
-            sugar_g: food.sugar_g,
-            sodium_mg: food.sodium_mg,
-          },
+          ...rowFromCorpusFood(corpusRowFromResolved(food), grams, Date.now()),
           origin: 'barcode',
           gramPathway: 'packaged_exact',
-          bandHalfPct: 0.05,
-          isEstimate: false,
-          assumptions: [],
         },
       ],
       null,
@@ -499,7 +486,7 @@ async function startBarcodeScanUnguarded(gtin: string): Promise<void> {
       kind: 'failed',
       photoUri: '',
       message:
-        'This barcode is not in the bundled database — the shipped USDA corpus is generic-tier and carries no barcodes at all. Search for the food by name, or enter it by hand. (Label reading needs an API key.)',
+        'This barcode is not in your food database. Search for the food by name, or enter it by hand. (Label reading needs an API key.)',
       canRetry: false,
     })
     return
@@ -518,7 +505,7 @@ async function startBarcodeScanUnguarded(gtin: string): Promise<void> {
       kind: 'failed',
       photoUri: '',
       message:
-        'Could not find this barcode in the bundled database or online. Search for the food by name, or enter it by hand.',
+        'Could not find this barcode in your food database or online. Search for the food by name, or enter it by hand.',
       canRetry: false,
     })
     return
@@ -853,29 +840,15 @@ export async function lookupOther(rowId: string, typed: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Log a corpus food the user found by text search.
+ * Log a food the user found by text search.
  *
- * Goes through `readyFromRows`, so a searched food arrives on the review screen
- * as the same kind of object a barcode or label scan produces — editable rows,
- * a band, one `Log it`. There is no second logging path to keep in sync.
- *
- * Returns false when the corpus row vanished between search and tap, which is
- * the caller's cue to say so rather than to open an empty review screen.
+ * Takes the row rather than an id: the corpus is on the PC now, so the screen
+ * already holds the full nutrition the search returned and a second lookup would
+ * be a second chance to fail. `null` means the server did not hand back details
+ * for that candidate — the caller says so rather than opening an empty review.
  */
-export async function startSearchLog(foodId: string, grams: number): Promise<boolean> {
-  let food: CorpusFoodRow | null = null
-  try {
-    const ndb = await openNutritionDb()
-    food = await ndb.get<CorpusFoodRow>(
-      `SELECT id, name, energy_kcal, protein_g, fat_g, carb_g, fiber_g, sugar_g, sodium_mg
-         FROM foods WHERE id = ? LIMIT 1`,
-      [foodId],
-    )
-  } catch {
-    food = null
-  }
-  if (!food) return false
-
+export function startSearchLog(food: CorpusFoodRow | null, grams: number): boolean {
+  if (food == null) return false
   readyFromRows([rowFromCorpusFood(food, grams, Date.now())], null, 'search-log', null)
   return true
 }

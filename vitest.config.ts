@@ -36,7 +36,13 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['packages/**/*.test.ts', 'eval/**/*.test.ts', 'apps/mobile/src/**/*.test.ts'],
+    include: [
+      'packages/**/*.test.ts',
+      'eval/**/*.test.ts',
+      'apps/mobile/src/**/*.test.ts',
+      'tools/nutrition-data/src/**/*.test.mjs',
+      'apps/food-server/src/**/*.test.ts',
+    ],
     environment: 'node',
   },
 })

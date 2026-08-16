@@ -1,11 +1,11 @@
 # nutai-nutrition-data
 
-Builds the `nutrition.db` artifact the app bundles.
+Builds the `nutrition-full.db` database that runs on your PC and serves the app over Tailscale.
 
 **This project and its output are licensed separately from the application.**
-The app is AGPL-3.0; this pipeline is ODbL-1.0, because that is the license the
-Open Food Facts tier imports once it is added. Data licenses and code licenses
-are legally independent — neither discharges the other.
+The app is AGPL-3.0; the database is ODbL-1.0/CC0-1.0/curated-cited depending on the tier, because
+of the Open Food Facts and other licensed data it contains. Data licenses and code licenses are
+legally independent — neither discharges the other.
 
 Sources and their actual terms:
 
@@ -24,3 +24,60 @@ records that feed the gram engine directly).
 **Do not bundle**, verified restricted: China CFCT (all rights reserved),
 India IFCT (restricted), Netherlands NEVO ("unchanged form" only),
 Italy CREA, EuroFIR (paid membership).
+
+## Full build (PC only)
+
+`tools/nutrition-data/src/build-full.mjs` builds a full corpus — three tiers,
+merged into one SQLite file — as a manual, PC-only step. It is never run on
+the phone. The output (`nutrition-full.db`) lives on your PC and is never
+compiled into the app; it is served to the app over Tailscale by the
+`food-server` systemd service.
+
+Three downloads/inputs, ingested in this order (order matters — see dedup below):
+
+1. **Open Food Facts** — the full JSONL export, ~9 GB gzipped:
+   ```
+   curl -C - -o ~/nut-ai-data/openfoodfacts-products.jsonl.gz \
+     https://static.openfoodfacts.org/data/openfoodfacts-products.jsonl.gz
+   ```
+2. **USDA FoodData Central — Branded Foods** CSV release, unzipped to
+   `$FDC_BRANDED_DIR/branded/` (defaults to `~/nut-ai-data/fdc`), containing
+   `branded_food.csv`, `food.csv` and `food_nutrient.csv`.
+3. **`arab-foods.csv`** — checked into this repo, not downloaded. Every row
+   cites a real published food-composition table (currently Pellett &
+   Shadarevian's *Food Composition Tables for Use in the Middle East* and
+   USDA SR Legacy). **Growing this tier is content work, not code work** —
+   add cited lines to the CSV and rebuild; no code change is needed to go
+   from 20 rows to 300.
+
+| Tier | Source | License | Barcode dedup |
+|---|---|---|---|
+| `off` | Open Food Facts | ODbL-1.0 | always wins a shared GTIN |
+| `fdc_branded` | USDA FDC Branded Foods | CC0-1.0 | loses a shared GTIN to `off` |
+| `arab_curated` | `arab-foods.csv`, cited per row | curated-cited | no barcode, never collides |
+
+**Dedup rule:** `off` always wins a shared GTIN over `fdc_branded` — by tier
+rank, not by ingestion order. `insertFood` (`build-full.mjs`) looks up the
+resident row for an incoming barcode and, when the incoming tier outranks it,
+replaces the resident row; otherwise the incoming row is dropped. This holds
+on a REBUILD too: even if `fdc_branded` already owns a GTIN in the resident
+database from an earlier run, a subsequent OFF ingest still takes it over.
+Ingesting `off` before `fdc_branded` (as this build does) is only an ordering
+convenience, not what makes OFF win.
+
+The build records this rule, plus final per-tier row counts and how many
+`fdc_branded` rows lost their GTIN to `off`, into `build_manifest`
+(`dedup_rule`, `counts.<tier>`, `dedup.branded_lost_to_off`) rather than only
+logging it to stdout.
+
+Run the build with:
+```
+npm run data:build:full
+```
+Output lands at `~/nut-ai-data/nutrition-full.db` (override with `OUT`). The
+OFF ingest is resumable (checkpointed every 5000 lines); `fdc_branded` is
+skipped with a log line, not an error, when `FDC_BRANDED_DIR` isn't set.
+
+See [README.md § Running the food server](../../README.md#running-the-food-server) for the
+complete deployment flow and [`deploy/food-server.service`](../../deploy/food-server.service) for
+systemd integration.

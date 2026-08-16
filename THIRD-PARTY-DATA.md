@@ -1,39 +1,44 @@
-# Third-party data shipped in this app
+# Third-party data used by this app
 
-Nut AI bundles one third-party dataset: the nutrition corpus in `nutrition.db`.
-No other third-party data is compiled into the binary, and no data is fetched
-from a third party without an API key the user supplied themselves.
+No third-party data is compiled into the binary. The app runs offline until the user enters an AI
+provider key or uses the food server. Photo, label and receipt scanning are sent to the provider
+the user chose (Anthropic, OpenAI or Google) using the user's own key. Food data is queried from
+a nutrition database built on your PC and served over Tailscale.
 
-## The bundled corpus
+## Nutrition tiers
 
-| Field | Value |
-|---|---|
-| Source | USDA FoodData Central (FDC) |
-| Tiers included | `fdc_foundation`, `fdc_sr_legacy` |
-| Rows | 7,928 foods; 14,630 rows in `food_portions` covering 7,643 of those foods |
-| Licence | Public domain (USDA FDC data is released without copyright restriction; the build stamps `foods.license` per row) |
-| Where it lands | `foods`, `food_portions`, `food_synonyms`, `food_micros` — see `packages/db-adapter/src/schema.ts:39` |
+The PC-hosted database merges three tiers, each under separate terms:
 
-### Attribution
+| Tier | Source | Licence | Dedup |
+|---|---|---|---|
+| `off` | Open Food Facts | ODbL-1.0 | Always wins a shared GTIN |
+| `fdc_branded` | USDA FoodData Central Branded Foods | CC0-1.0 | Loses shared GTINs to `off` |
+| `arab_curated` | `tools/nutrition-data/arab-foods.csv` (checked into this repo) | curated-cited | No barcodes, never collides |
 
-> Nutrient data from USDA FoodData Central, Agricultural Research Service,
-> U.S. Department of Agriculture. https://fdc.nal.usda.gov/
+### Open Food Facts (ODbL-1.0)
 
-USDA does not endorse this app. The app's in-corpus figure line ("USDA, CC0" in
-`apps/mobile/app/food-search.tsx`) is the user-facing form of this attribution.
+**Attribution:** "Contains information from Open Food Facts, which is made available under the
+Open Database License (ODbL) v1.0."
 
-## What the generic tier does NOT contain: barcodes
+**Share-alike note:** The built `nutrition-full.db` is a derivative database; redistributing it
+means redistributing it under ODbL with the same attribution. It is not redistributed by this
+repo — it is built locally on your PC and stays there.
 
-**Zero of the 7,928 shipped foods carry a barcode.** `fdc_foundation` and
-`fdc_sr_legacy` are generic-tier datasets — "Chicken, broilers or fryers,
-breast, meat only, cooked, roasted" — and generic foods have no GTIN. The
-branded tier (`fdc_branded`), which does carry GTINs, is not shipped.
+### USDA FoodData Central Branded Foods (CC0-1.0)
 
-The consequence is deliberate and is documented in the code: the local-first
-barcode query at `apps/mobile/src/scan/orchestrator.ts:405` is correct but
-cannot hit against the shipped corpus. Every real scan falls through to either
-the keyed web lookup or, with no key, to the honest miss screen that offers
-text search and manual entry. Nothing here silently guesses a product.
+Public domain release. Attributed per the existing form in the app.
+
+### Arab Curated Foods (curated-cited)
+
+Every row carries a `source` column naming the published food-composition table it was transcribed
+from. A row without a citable source does not ship — `parseArabCsv` throws rather than skipping it.
+Sourcing policy is checked as part of every build.
+
+## Barcodes
+
+The `off` and `fdc_branded` tiers carry GTINs. `apps/mobile/src/scan/orchestrator.ts` now queries
+`/barcode/<gtin>` on the food server. A miss is a miss rather than a silent guess — the app offers
+text search and manual entry when no barcode is found.
 
 ## Provider data
 

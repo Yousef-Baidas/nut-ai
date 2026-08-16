@@ -24,8 +24,10 @@ vi.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }))
 
-vi.mock('../db/expo-adapter', () => ({
-  openNutritionDb: async () => ({ get: async () => null, all: async () => [] }),
+vi.mock('../data/food-server', () => ({
+  lookupBarcode: async () => ({ kind: 'not_found' }),
+  runRemotePipeline: async () => ({ kind: 'server_unreachable', reason: 'network', detail: 'no server in this test' }),
+  UNREACHABLE_COPY: 'Food database unreachable — is the PC on?',
 }))
 
 vi.mock('../data/repo', () => ({

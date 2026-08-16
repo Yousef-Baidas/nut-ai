@@ -32,14 +32,22 @@ const CHICKEN = {
   sodium_mg: 74,
 }
 
-const foods = new Map<string, typeof CHICKEN>([['171077', CHICKEN]])
+const CHICKEN_ROW = {
+  id: '171077',
+  name: CHICKEN.name,
+  energy_kcal: 165,
+  protein_g: 31,
+  fat_g: 3.6,
+  carb_g: 0,
+  fiber_g: null,
+  sugar_g: null,
+  sodium_mg: 74,
+}
 
-vi.mock('../db/expo-adapter', () => ({
-  openNutritionDb: async () => ({
-    get: async (_sql: string, params: unknown[]) => foods.get(String(params[0])) ?? null,
-    all: async () => [],
-  }),
-  nutritionCorpusInfo: async () => ({ foods: 7928, portions: 14630, builtAt: null }),
+vi.mock('../data/food-server', () => ({
+  lookupBarcode: async () => ({ kind: 'not_found' }),
+  runRemotePipeline: async () => ({ kind: 'server_unreachable', reason: 'network', detail: 'no server in this test' }),
+  UNREACHABLE_COPY: 'Food database unreachable — is the PC on?',
 }))
 
 vi.mock('../data/repo', () => ({
@@ -60,8 +68,8 @@ const { getPhase, reset } = await import('./store')
 beforeEach(() => reset())
 
 describe('search → log, with no key', () => {
-  it('reaches a ready phase with the corpus food at the chosen portion', async () => {
-    expect(await startSearchLog('171077', 150)).toBe(true)
+  it('reaches a ready phase with the corpus food at the chosen portion', () => {
+    expect(startSearchLog(CHICKEN_ROW, 150)).toBe(true)
 
     const phase = getPhase()
     expect(phase.kind).toBe('ready')
@@ -80,16 +88,16 @@ describe('search → log, with no key', () => {
     expect(phase.result.meal.engineId).toBe('search-log')
   })
 
-  it('asks no clarifying questions — the user already answered the only one', async () => {
-    await startSearchLog('171077', 150)
+  it('asks no clarifying questions — the user already answered the only one', () => {
+    startSearchLog(CHICKEN_ROW, 150)
     const phase = getPhase()
     if (phase.kind !== 'ready') throw new Error('unreachable')
     expect(phase.result.questions).toEqual([])
     expect(phase.result.items[0]!.resolution).toBe('auto_accept')
   })
 
-  it('reports a corpus row that is not there, instead of opening an empty review', async () => {
-    expect(await startSearchLog('404404', 150)).toBe(false)
+  it('reports a corpus row that is not there, instead of opening an empty review', () => {
+    expect(startSearchLog(null, 150)).toBe(false)
     expect(getPhase().kind).toBe('idle')
   })
 })

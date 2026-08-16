@@ -15,13 +15,18 @@
   },
   "scripts": {
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc -p tsconfig.json && npm --prefix apps/mobile run typecheck",
+    "typecheck": "tsc --build apps/food-server && tsc -p tsconfig.json && npm --prefix apps/mobile run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "check:node-purity": "node scripts/check-node-purity.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run check:node-purity && npm run data:verify",
     "data:build": "node tools/nutrition-data/src/build.mjs",
+    "data:build:full": "npm run build:packages && node tools/nutrition-data/src/build-full.mjs",
     "data:verify": "node tools/nutrition-data/src/golden-queries.mjs",
+    "data:backfill-portions": "npm run build:packages && node tools/nutrition-data/src/backfill-portions.mjs",
+    "build:packages": "tsc --build packages/core-schema packages/db-adapter packages/clamp packages/resolver",
+    "build:server": "tsc --build apps/food-server",
+    "food-server": "npm run build:server && node apps/food-server/dist/server.js",
     "postinstall": "node scripts/patch-expo-modules-jsi.mjs"
   },
   "devDependencies": {

@@ -23,13 +23,14 @@ import { createInterface } from 'node:readline'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
+import { normalizeSearchText } from '@nutai/resolver'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '../../..')
 
 /** Where the unpacked USDA CSV directories live. Override with FDC_DIR. */
 const FDC_DIR = process.env.FDC_DIR ?? '/tmp/fdc'
-const OUT = process.env.OUT ?? join(REPO, 'apps/mobile/assets/nutrition.db')
+const OUT = process.env.OUT ?? join(REPO, 'tools/nutrition-data/out/nutrition.db')
 
 /**
  * Expected headers, verified against the real 2025-04-24 Foundation Foods and
@@ -275,8 +276,11 @@ async function main() {
         n.carb_g ?? null, n.fiber_g ?? null, n.sugar_g ?? null, n.sodium_mg ?? null,
         completeness, rowId, now,
       )
-      insertFts.run(rowId, f.name, '', '')
-      insertTri.run(rowId, f.name)
+      // Folded exactly like build-full.mjs's food_fts insert — a single
+      // choke point (resolveByText) does the same fold at query time, so an
+      // index built here and one built there must agree token-for-token.
+      insertFts.run(rowId, normalizeSearchText(f.name), '', '')
+      insertTri.run(rowId, normalizeSearchText(f.name))
     }
 
     for (const p of state.portions) {
@@ -315,6 +319,6 @@ async function main() {
 
 main().catch((err) => {
   console.error('\nBUILD FAILED\n')
-  console.error(err.message)
+  console.error(err.stack || err.message)
   process.exit(1)
 })

@@ -12,6 +12,7 @@ import {
 export * from './gtin.js'
 export * from './query.js'
 export * from './scoring.js'
+export * from './search-normalize.js'
 
 /**
  * Nutrition resolution — food name to database row.

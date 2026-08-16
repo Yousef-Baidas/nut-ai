@@ -9,6 +9,7 @@ import {
   matchLadder,
   normalizeBm25,
   normalizeGtin,
+  normalizeSearchText,
   prepMatch,
   resolveByBarcode,
   resolveByText,
@@ -68,7 +69,10 @@ describe('FTS query construction', () => {
   })
 
   it('splits on commas, matching USDA naming', () => {
-    expect(toMatchExpression('chicken breast, grilled')).toBe('"chicken" "breast" "grilled"')
+    // "grilled" folds its doubled consonant (ll -> l) now that toMatchExpression
+    // runs the same normalizeSearchText fold the index is built with (C1/C2) —
+    // this is the real, honest output, not raw-index behavior.
+    expect(toMatchExpression('chicken breast, grilled')).toBe('"chicken" "breast" "griled"')
   })
 
   it('returns null for an empty query rather than a matcher that errors', () => {
@@ -77,8 +81,10 @@ describe('FTS query construction', () => {
   })
 
   it('builds a ladder that drops trailing modifiers before the head noun', () => {
+    // Same fold as toMatchExpression, applied inside matchLadder itself — the
+    // single choke point (C1/C2).
     const ladder = matchLadder('chicken breast, grilled')
-    expect(ladder[0]).toBe('"chicken" "breast" "grilled"')
+    expect(ladder[0]).toBe('"chicken" "breast" "griled"')
     expect(ladder[1]).toBe('"chicken" "breast"')
     expect(ladder[2]).toBe('"chicken"')
     expect(ladder.at(-1)).toContain('OR')
@@ -281,6 +287,35 @@ describe('resolution against a real corpus', () => {
 
   it('returns null for an unknown barcode instead of a wrong row', async () => {
     expect(await resolveByBarcode(db, '9999999999994')).toBeNull()
+  })
+
+  it('finds a fold-sensitive food when the index was folded and the query is raw (C1/C2)', async () => {
+    // "cheese" is lossy under foldLatin (ee -> i: "chise"), and "cheddar" collapses
+    // its doubled consonant ("cheddar" -> "chedar"). Index it exactly the way
+    // build.mjs/build-full.mjs do — via normalizeSearchText — and hand
+    // resolveByText the RAW, unfolded query, the way handlePipeline does. If
+    // matchLadder doesn't fold the query itself, this returns zero rows even
+    // though a human would call it an exact match.
+    const id = 5
+    const name = 'Cheddar Cheese'
+    await db.run(
+      `INSERT INTO foods (id, source, name, energy_kcal, license, basis_confidence, completeness_score)
+       VALUES (?,?,?,?,?,?,?)`,
+      [id, 'fdc_sr_legacy', name, 403, 'CC0', 'high', 0.9],
+    )
+    await db.run('INSERT INTO food_fts (rowid, name, brand, synonyms) VALUES (?,?,?,?)', [
+      id, normalizeSearchText(name), '', '',
+    ])
+
+    const r = await resolveByText(db, {
+      canonicalFoodKey: 'cheddar cheese',
+      observedBrand: null, prepFacet: null, modelCategory: null, estimatedGrams: 30,
+    })
+    expect(r.zeroHit).toBe(false)
+    const ids = r.outcome.kind === 'auto_accept'
+      ? [r.outcome.match.foodId]
+      : r.outcome.kind === 'disambiguate' ? r.outcome.candidates.map((c) => c.foodId) : []
+    expect(ids.map(String)).toContain(String(id))
   })
 
   it('never throws on a hostile query string', async () => {

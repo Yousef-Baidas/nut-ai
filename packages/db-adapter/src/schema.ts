@@ -4,8 +4,8 @@
  * SPEC-accuracy-engine.md §5.3. Two databases with deliberately separate
  * lifecycles, and the separation is licensing as much as engineering:
  *
- *   nutrition.db  read-only bundled asset. ODbL/CC0 DATA, shipped as a build
- *                 artifact from its own repo on its own release cadence.
+ *   nutrition.db  read-only PC-hosted database. ODbL/CC0 DATA, built on the
+ *                 user's PC and served over Tailscale.
  *   user.db       writable, local, user-owned. Never mixed with the corpus.
  *
  * Keeping them apart means a nutrition-database update can never mutate a
@@ -14,7 +14,10 @@
  */
 
 /**
- * The read-only bundled corpus.
+ * The read-only nutrition corpus. Nothing here ships inside the phone app —
+ * this schema backs the PC-hosted `nutrition-full.db` that `food-server`
+ * serves over Tailscale, and the small test fixture that `npm run data:build`
+ * produces for `npm test` / `npm run data:verify`.
  *
  * TWO SCHEMA DECISIONS WORTH DEFENDING:
  *
@@ -63,6 +66,7 @@ CREATE TABLE IF NOT EXISTS foods (
   completeness_score REAL,
   popularity_rank    INTEGER,
   license            TEXT NOT NULL,
+  tier               TEXT,
   updated_at         INTEGER
 );
 
@@ -71,6 +75,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_foods_barcode
 CREATE INDEX IF NOT EXISTS idx_foods_barcode_cover
   ON foods(barcode, name, brand_id, energy_kcal, protein_g, fat_g, carb_g);
 CREATE INDEX IF NOT EXISTS idx_foods_popularity ON foods(popularity_rank);
+CREATE INDEX IF NOT EXISTS idx_foods_tier ON foods(tier);
 
 CREATE TABLE IF NOT EXISTS food_micros (
   food_id       INTEGER REFERENCES foods(id),
@@ -138,7 +143,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS food_fts_trigram USING fts5(
  * THE INVARIANT THAT PAYS FOR EVERYTHING: log_items carries a per-100 g snapshot
  * COPIED at log time. The diary never joins live to `foods`.
  *
- * If the bundled corpus is updated in a later release — corrected USDA data, a
+ * If the nutrition corpus is updated later — corrected USDA data, a
  * merged OFF update — historical entries must not silently change. A user's
  * Tuesday breakfast total must not shift because Thursday's app update fixed a
  * typo in the almond-butter row. That is a real, easy-to-miss correctness bug

@@ -14,9 +14,10 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
+import { toMatchExpression } from '@nutai/resolver'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.DB ?? join(HERE, '../../../apps/mobile/assets/nutrition.db')
+const DB_PATH = process.env.DB ?? join(HERE, '../out/nutrition.db')
 
 /**
  * Each case asserts the SHAPE of a correct answer, not an exact row id — row ids
@@ -54,7 +55,13 @@ const STEMMING_CASES = [
 ]
 
 function match(db, query) {
-  const expr = query.split(/\s+/).filter(Boolean).map((t) => `"${t}"`).join(' ')
+  // Use the SAME query construction the real resolver uses (matchLadder /
+  // toMatchExpression, packages/resolver/src/query.ts) rather than a
+  // hand-rolled quoting scheme — otherwise this suite tests a query path
+  // nothing in the app actually walks (the C1/C2 bug this suite exists to
+  // catch was exactly a divergence like that).
+  const expr = toMatchExpression(query)
+  if (expr == null) return []
   return db
     .prepare(
       `SELECT f.id, f.name, f.energy_kcal

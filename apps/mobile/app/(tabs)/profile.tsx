@@ -224,6 +224,10 @@ export default function Profile() {
         <Row label="Provider & key" value={providerLabel} onPress={() => router.push('/provider-settings' as never)} />
       </Section>
 
+      <Section title="Food database">
+        <Row label="Server address" value="" onPress={() => router.push('/food-server-settings' as never)} />
+      </Section>
+
       <Section title="Apple Health">
         {healthAvail === 'available' ? (
           <>
@@ -294,7 +298,7 @@ export default function Profile() {
 
       <Section title="About">
         <Row label="License" value="AGPL-3.0" />
-        <Row label="Nutrition data" value="USDA, CC0" />
+        <Row label="Nutrition data" value="USDA (CC0) + Open Food Facts (ODbL) + curated-cited" />
       </Section>
 
       <Text style={[type.caption, { color: theme.textFaint, marginTop: space.xl, lineHeight: 19 }]}>

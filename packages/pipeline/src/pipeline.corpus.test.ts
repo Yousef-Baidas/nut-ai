@@ -10,10 +10,13 @@ import type { PersonalPriors } from '@nutai/gram-engine'
 import { makeFoodDb, runPipeline } from './index.js'
 
 /**
- * The pipeline against the REAL bundled corpus.
+ * The pipeline against the REAL small test-fixture corpus.
  *
- * 7,928 USDA foods and 14,630 portion records, built by
- * tools/nutrition-data. Not a fixture — the same file the app ships.
+ * USDA Foundation Foods + SR Legacy, built by `npm run data:build`
+ * (tools/nutrition-data/src/build.mjs). Not a hand-written fixture, and not
+ * what ships to the phone either — nothing does; the app talks to the
+ * PC-hosted food server instead. This file exists only for tests and
+ * `npm run data:verify`.
  *
  * The fixture tests prove the wiring is correct. This one proves the wiring is
  * correct ABOUT SOMETHING, which is a different and harder claim: a resolver that
@@ -23,7 +26,7 @@ import { makeFoodDb, runPipeline } from './index.js'
 
 const DB_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
-  '../../../apps/mobile/assets/nutrition.db',
+  '../../../tools/nutrition-data/out/nutrition.db',
 )
 
 const hasCorpus = existsSync(DB_PATH)
@@ -32,6 +35,13 @@ const maybe = hasCorpus ? describe : describe.skip
 if (!hasCorpus) {
   console.warn(`\n[pipeline] corpus not found at ${DB_PATH} — run \`npm run data:build\` first.\n`)
 }
+
+describe('corpus fixture location', () => {
+  it('lives in tools/nutrition-data/out, not in the app bundle', () => {
+    expect(DB_PATH.endsWith('tools/nutrition-data/out/nutrition.db')).toBe(true)
+    expect(DB_PATH).not.toContain('apps/mobile/assets')
+  })
+})
 
 function item(over: Partial<Item> = {}): Item {
   return {

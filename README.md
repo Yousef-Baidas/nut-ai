@@ -3,8 +3,9 @@
 An open-source AI photo calorie tracker that never shows a number it cannot justify.
 
 Point your camera at a meal and get calories and macros — with an honest uncertainty range, the
-assumptions it made shown as editable chips, and a correction flow that recomputes everything locally
-and instantly. No subscription, no paywall, no account, no server.
+assumptions it made shown as editable chips, and a correction flow that recomputes everything on
+hardware you own — the phone talks only to your PC and, if you supplied a key, to your chosen AI
+provider. No subscription, no paywall, no account, no server.
 
 <img src="docs/img/hero.png" alt="Nut AI home screen" width="320" />
 
@@ -16,16 +17,12 @@ and instantly. No subscription, no paywall, no account, no server.
 - **Photo scans** with your own AI key: the model identifies components (a burger comes back as
   patty, bun, and toppings — never one blob), the deterministic engine does every number, and each
   row shows its uncertainty band and where its data came from.
-- **Four camera modes** — food photo, **barcode** (a local-first lookup that costs nothing on a
-  hit, but the bundled corpus is USDA generic-tier and carries zero barcodes today, so in practice
-  it falls to a keyed web lookup or an honest miss screen that hands off to search and manual
-  entry), **nutrition label** (transcribes the printed panel with your AI key, refuses to guess a
-  missing serving weight), and **receipt** (reads the line items with your AI key, then fetches
-  each item's published nutrition with the merchant as the brand).
-- **Text search, manual entry and saved meals** — search the bundled 7,928-food USDA corpus and log
-  a result at a portion you pick; type a food's name and numbers yourself; or save any corrected
-  meal and relog it later at the same size or scaled, with zero questions asked. All three, and the
-  entire correction flow, work with no AI key and no network at all.
+- **Four camera modes** — food photo, **barcode** (looked up against the millions of GTINs in your
+  own food database, costing nothing and needing no key), nutrition label, receipt.
+- **Text search, manual entry and saved meals** — search your PC's nutrition database over
+  Tailscale and log a result at a portion you pick; type a food's name and numbers yourself; or
+  save any corrected meal and relog it later at the same size or scaled, with zero questions asked.
+  Text search and manual entry work offline (no AI key needed); the correction flow is offline, too.
 - **Web lookup for branded and restaurant food** (needs your key): when the local database misses —
   or a logo in frame names a brand — one search against the provider's own tool transcribes the
   published nutrition facts, source URL attached. Menu ambiguity comes back as options that each
@@ -83,11 +80,10 @@ does not offer it. The commitment it carries stands and moves with it: its accur
 measured against the kitchen-scale-weighed golden set and **published before it ships as a
 default** — free, private and works-on-a-plane is worth nothing if the numbers are unproven.
 
-**What works with no key at all:** text search against the bundled 7,928-food USDA corpus,
-logging any of those foods at a portion you pick from its household measures, manual entry of
-a food by name and numbers, relogging anything you saved, and the entire correction flow —
-every gram edit, row removal and portion change recomputes locally from per-100 g snapshots,
-offline, instantly.
+**What works with no key at all:** text search against your PC's nutrition database (server must
+be running), logging any of those foods at a portion you pick, manual entry of a food by name
+and numbers, relogging anything you saved, and the entire correction flow — every gram edit, row
+removal and portion change recomputes locally from per-100 g snapshots, offline, instantly.
 
 **What needs your key:** photo scanning, nutrition-label reading, receipt reading, **Fix Result**
 (a correction re-runs the same vision analysis on the original photo, so it needs whatever key
@@ -145,10 +141,13 @@ listing taking a cut. One-time setup, ~20 minutes.
 ```bash
 git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
-npm run data:build                      # builds the bundled USDA nutrition database
 cd apps/mobile && npm run prebuild      # generates the native project
 open ios/NutAI.xcworkspace              # then: pick your phone, press Run (⌘R)
 ```
+
+The phone bundles no nutrition database — `npm run data:build` is not part of this flow. It
+builds a small test fixture used by `npm test` and `npm run data:verify`, nothing the app ships
+or reads. See "Running the food server" below for the database the app actually talks to.
 
 Xcode will ask you to pick a signing team the first time — your free Apple ID works (apps signed
 this way re-install every 7 days; a $99/yr developer account removes that limit).
@@ -158,15 +157,13 @@ this way re-install every 7 days; a $99/yr developer account removes that limit)
 ```bash
 git clone https://github.com/Yousef-Baidas/nut-ai.git
 cd nut-ai && npm install
-npm run data:build
 cd apps/mobile && npx expo run:android --variant release   # phone plugged in, USB debugging on
 ```
 
-Photo scans, nutrition-label reads and receipt reads use your own AI key (Anthropic, OpenAI, or
-Google), added during onboarding or later in Profile — typically well under a cent per scan. The
-app works without one for text search, manual entry, saved-meal relog and the correction flow;
-barcode is local-first but the bundled corpus has no barcodes, so a scan either falls to a keyed
-web lookup or hands off to search and manual entry — see "How you run it" above.
+The phone bundles no nutrition corpus at all. The database lives on your PC and is reached over
+Tailscale on port 7100. Searching, barcode lookup and the deterministic pipeline all call it.
+When it is unreachable the app says "Food database unreachable — is the PC on?" and offers manual
+entry and, with a key, an AI estimate.
 
 ## Your data stays yours
 
@@ -179,6 +176,54 @@ web lookup or hands off to search and manual entry — see "How you run it" abov
 - Your API key is the one thing a backup never contains: keys live in the OS Keychain/Keystore,
   out-of-band from your data, and are never written to any file. Re-enter the key once after a
   restore.
+
+## Running the food server
+
+The nutrition database is built on your PC and served to the app over your home network or Tailscale.
+
+**Build the full corpus** (one-time). This merges three tiers into one SQLite file; on the order
+of an hour or more even on a fast machine — the Open Food Facts JSONL alone is a 12 GB download
+that decompresses into 4.68M product lines, and USDA Branded Foods is ~2M products:
+
+```bash
+npm run data:build:full
+```
+
+The build itself downloads nothing — fetch Open Food Facts first, separately:
+
+1. **Open Food Facts** (off) — ~9-12 GB gzipped, resumable:
+   ```bash
+   curl -C - -o ~/nut-ai-data/openfoodfacts-products.jsonl.gz \
+     https://static.openfoodfacts.org/data/openfoodfacts-products.jsonl.gz
+   ```
+2. **USDA FoodData Central Branded Foods** (fdc_branded) — download and unzip to
+   `~/nut-ai-data/fdc/branded/` (set `FDC_BRANDED_DIR` to skip)
+3. **Arab Curated Foods** (arab_curated) — checked into the repo, 20 cited rows by default
+
+Then run `npm run data:build:full`, which reads those and merges them. Output lands at
+`~/nut-ai-data/nutrition-full.db`. The three tiers use separate licences (ODbL, CC0,
+curated-cited) — see `THIRD-PARTY-DATA.md`.
+
+**Find your PC's Tailscale address:**
+
+```bash
+tailscale ip -4
+```
+
+**Install the systemd service** on the PC (one-time) — this is a **user** unit, not a system
+one, so `%h` in the unit file resolves to your own home directory rather than `/root`. Use the
+exact recipe from [`deploy/food-server.service`](deploy/food-server.service)'s own header:
+
+```bash
+mkdir -p ~/.config/systemd/user
+sed "s|@REPO@|$(pwd)|; s|@TSIP@|$(tailscale ip -4)|" \
+  deploy/food-server.service > ~/.config/systemd/user/food-server.service
+systemctl --user daemon-reload
+systemctl --user enable --now food-server
+```
+
+**Configure the app** — in Profile, tap Food database → Server address and enter the Tailscale
+address (default `http://100.96.136.73:7100`).
 
 ## Development
 

@@ -29,11 +29,8 @@ vi.mock('expo-sqlite', () => {
         closeAsync: vi.fn(async () => {}),
       }
     }),
-    importDatabaseFromAssetAsync: vi.fn(async () => {}),
   }
 })
-
-vi.mock('../../assets/nutrition.db', () => ({ default: 'nutrition-db-asset' }))
 
 beforeEach(() => {
   vi.resetModules()
@@ -57,29 +54,3 @@ describe('openUserDb', () => {
   })
 })
 
-describe('openNutritionDb', () => {
-  it('returns the same instance on every call', async () => {
-    const { openNutritionDb } = await import('./expo-adapter')
-    const a = await openNutritionDb()
-    const b = await openNutritionDb()
-    expect(a).toBe(b)
-    expect(openCount).toBe(1)
-  })
-
-  it('memoizes the in-flight promise so concurrent first callers never open twice', async () => {
-    const { openNutritionDb } = await import('./expo-adapter')
-    const [a, b] = await Promise.all([openNutritionDb(), openNutritionDb()])
-    expect(a).toBe(b)
-    expect(openCount).toBe(1)
-  })
-})
-
-describe('openUserDb vs openNutritionDb', () => {
-  it('are distinct instances backed by distinct filenames', async () => {
-    const { openUserDb, openNutritionDb } = await import('./expo-adapter')
-    const user = await openUserDb()
-    const nutrition = await openNutritionDb()
-    expect(user).not.toBe(nutrition)
-    expect(openCount).toBe(2)
-  })
-})
