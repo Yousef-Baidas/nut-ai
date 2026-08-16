@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createGunzip } from 'node:zlib'
 import Database from 'better-sqlite3'
-import { normalizeSearchText } from '@nutai/resolver'
+import { normalizeGtin, normalizeSearchText } from '@nutai/resolver'
 import { isNutritionallySane, offFoodToRow, parseOffLine } from './off.mjs'
 import { ingestBranded } from './branded.mjs'
 import { ingestArab } from './arab.mjs'
@@ -213,6 +213,15 @@ function deleteFoodRow(db, id) {
  * OFF-always-wins.
  */
 export function insertFood(db, row, now) {
+  // Store the CANONICAL 13-digit GTIN, never the source's raw string. The
+  // sources disagree with each other (FDC gtinUpc is often zero-padded to 14,
+  // OFF codes arrive at 8/12/13 digits) and `resolveByBarcode` normalizes the
+  // scanned code before querying — so a raw stored value is a row no scan can
+  // ever hit. An invalid code becomes NULL rather than a lookup-poisoning
+  // string. Normalizing here, at the single insert choke point, also makes the
+  // tier-dedup rule below compare like with like.
+  row = { ...row, barcode: row.barcode != null ? normalizeGtin(String(row.barcode)) : null }
+
   if (row.barcode != null) {
     const resident = db.prepare('SELECT id, tier FROM foods WHERE barcode = ?').get(row.barcode)
     if (resident != null) {
