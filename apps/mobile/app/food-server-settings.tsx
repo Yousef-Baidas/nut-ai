@@ -11,6 +11,7 @@ import {
   foodServerUrl,
   setFoodServerUrl,
 } from '../src/data/food-server'
+import { runServerTest } from '../src/data/server-url'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 
@@ -31,7 +32,13 @@ export default function FoodServerSettings() {
 
   useFocusEffect(
     useCallback(() => {
-      void (async () => { setUrl(await foodServerUrl()) })()
+      void (async () => {
+        try {
+          setUrl(await foodServerUrl())
+        } catch {
+          // A settings-read failure just leaves the field at whatever it was.
+        }
+      })()
     }, []),
   )
 
@@ -39,14 +46,14 @@ export default function FoodServerSettings() {
     setBusy(true)
     setStatus('Checking…')
     void (async () => {
-      await setFoodServerUrl(url)
-      const r = await fetchHealth()
-      setBusy(false)
-      if (r.kind !== 'ok') { setStatus(UNREACHABLE_COPY); return }
-      setStatus(
-        `${r.value.foods.toLocaleString()} foods · ${r.value.barcodes.toLocaleString()} barcodes` +
-          (r.value.schemaMismatch ? ' · the server and app versions may differ' : ''),
-      )
+      try {
+        const result = await runServerTest(url, { setFoodServerUrl, fetchHealth })
+        setStatus(result.status)
+      } finally {
+        // Always cleared, including on an unexpected throw — a stranded
+        // "Checking…" behind a disabled button is the bug this guards against.
+        setBusy(false)
+      }
     })()
   }
 

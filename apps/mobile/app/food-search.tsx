@@ -14,6 +14,7 @@ import {
 import { DEFAULT_PORTION_GRAMS, toPortionOptions, type PortionOption } from '../src/db/portion-options'
 import { corpusRowFromResolved } from '../src/scan/rows'
 import { startSearchLog } from '../src/scan/orchestrator'
+import { CLEARED_SEARCH_STATE, searchOutcomeState } from '../src/scan/search-outcome'
 import { useTheme } from '../src/theme/ThemeProvider'
 import { MIN_TAP_TARGET, radius, space, type } from '../src/theme/tokens'
 
@@ -52,7 +53,16 @@ export default function FoodSearch() {
   }, [])
 
   useEffect(() => {
-    if (query.trim().length < 2) { setResults([]); setDetails({}); setOutcome(''); setUnreachable(false); return }
+    if (query.trim().length < 2) {
+      // CLEARED_SEARCH_STATE.busy is false — clearing the field must not leave
+      // the spinner running under an empty box (see search-outcome.ts).
+      setResults(CLEARED_SEARCH_STATE.results)
+      setDetails(CLEARED_SEARCH_STATE.details)
+      setOutcome(CLEARED_SEARCH_STATE.outcome)
+      setUnreachable(CLEARED_SEARCH_STATE.unreachable)
+      setBusy(CLEARED_SEARCH_STATE.busy)
+      return
+    }
     let alive = true
     setBusy(true)
     const timer = setTimeout(() => {
@@ -63,24 +73,11 @@ export default function FoodSearch() {
         // spinner that outlives its request is the defect class this screen
         // has already been fixed for once.
         setBusy(false)
-        if (r.kind !== 'ok') {
-          setResults([]); setDetails({}); setUnreachable(true)
-          setOutcome(r.kind === 'not_found' ? 'no match' : UNREACHABLE_COPY)
-          return
-        }
-        setUnreachable(false)
-        setDetails(r.value.details)
-        const o = r.value.outcome
-        if (o.kind === 'auto_accept') {
-          setResults([o.match])
-          setOutcome(`auto-accepted (score ${o.match.score.toFixed(2)})`)
-        } else if (o.kind === 'disambiguate') {
-          setResults(o.candidates)
-          setOutcome(`${o.candidates.length} candidates — tap the right one`)
-        } else {
-          setResults([])
-          setOutcome('no match — nothing in the corpus matched')
-        }
+        const state = searchOutcomeState(r)
+        setResults(state.results)
+        setDetails(state.details)
+        setOutcome(state.outcome)
+        setUnreachable(state.unreachable)
       })()
     }, 180)
     return () => { alive = false; clearTimeout(timer) }
