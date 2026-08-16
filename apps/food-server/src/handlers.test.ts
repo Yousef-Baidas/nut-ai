@@ -20,6 +20,18 @@ describe('handleHealth', () => {
     expect(h.builtAt).toBe('2026-08-16T00:00:00.000Z')
     expect(h.tiers).toEqual(['arab_curated', 'generic', 'off'])
   })
+
+  it('prefers the build_manifest counts.<tier> rows over a live table scan, when present', async () => {
+    // Values deliberately DISAGREE with the live `foods` table (4 rows) — the
+    // only way this test can distinguish "read the manifest" from "scanned the
+    // table and got the right answer by coincidence".
+    await db.run("INSERT INTO build_manifest (key, value) VALUES ('counts.off', '10')")
+    await db.run("INSERT INTO build_manifest (key, value) VALUES ('counts.arab_curated', '5')")
+
+    const h = await handleHealth(db)
+    expect(h.foods).toBe(15)
+    expect(h.tiers).toEqual(['arab_curated', 'off'])
+  })
 })
 
 describe('handleSearch', () => {

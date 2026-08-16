@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist", "types": ["node"] },
   "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"],
   "references": [
     { "path": "../../packages/core-schema" },
     { "path": "../../packages/db-adapter" },

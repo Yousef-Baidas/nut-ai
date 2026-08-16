@@ -30,23 +30,55 @@ FROM food_portions WHERE food_id = ? AND gram_weight > 0
 /** Thrown when the model's payload fails Zod validation inside runPipeline. */
 export class BadPipelinePayloadError extends Error {}
 
+/**
+ * `/health` is a liveness probe — callers can and will poll it. On the full,
+ * multi-GB corpus, `COUNT(*) FROM foods` and `SELECT DISTINCT tier FROM foods`
+ * are both near-full-table scans, which is an expensive thing to run on every
+ * poll. `build-full.mjs` already writes one `counts.<tier>` manifest row per
+ * tier at build time (tools/nutrition-data/src/build-full.mjs:91) — summing
+ * those rows gives the total food count and their key suffixes give the tier
+ * list, with zero table scan.
+ *
+ * The live-scan path stays as a FALLBACK for the one case the manifest can't
+ * cover: a corpus built without `counts.*` rows (the small dev corpus from
+ * build.mjs, or a hand-built test fixture). It only runs when that manifest
+ * data is genuinely absent, never as a "just in case" double-check.
+ */
 export async function handleHealth(db: DbAdapter): Promise<HealthResponse> {
-  const foods = await db.get<{ c: number }>('SELECT COUNT(*) c FROM foods')
+  const built = await db.get<{ value: string }>("SELECT value FROM build_manifest WHERE key = 'built_at'")
+  const tierCounts = await db.all<{ key: string; value: string }>(
+    "SELECT key, value FROM build_manifest WHERE key LIKE 'counts.%'",
+  )
+
+  let foods: number
+  let tiers: string[]
+  if (tierCounts.length > 0) {
+    foods = tierCounts.reduce((sum, r) => sum + Number(r.value), 0)
+    tiers = tierCounts.map((r) => r.key.slice('counts.'.length)).sort()
+  } else {
+    const foodsRow = await db.get<{ c: number }>('SELECT COUNT(*) c FROM foods')
+    foods = foodsRow?.c ?? 0
+    const tierRows = await db.all<{ tier: string | null }>(
+      'SELECT DISTINCT tier FROM foods WHERE tier IS NOT NULL ORDER BY tier',
+    )
+    tiers = tierRows.map((t) => t.tier).filter((t): t is string => t != null)
+  }
+
+  // `build-full.mjs` does not (yet) write manifest counts for portions or
+  // barcodes, so these two always take the live-scan path — that is the
+  // fallback rule applied correctly, not an oversight: there is no manifest
+  // row to prefer.
   const portions = await db.get<{ c: number }>('SELECT COUNT(*) c FROM food_portions')
   const barcodes = await db.get<{ c: number }>('SELECT COUNT(*) c FROM foods WHERE barcode IS NOT NULL')
-  const built = await db.get<{ value: string }>("SELECT value FROM build_manifest WHERE key = 'built_at'")
-  const tiers = await db.all<{ tier: string | null }>(
-    'SELECT DISTINCT tier FROM foods WHERE tier IS NOT NULL ORDER BY tier',
-  )
 
   return {
     ok: true,
     schemaVersion: SCHEMA_VERSION,
-    foods: foods?.c ?? 0,
+    foods,
     portions: portions?.c ?? 0,
     barcodes: barcodes?.c ?? 0,
     builtAt: built?.value ?? null,
-    tiers: tiers.map((t) => t.tier).filter((t): t is string => t != null),
+    tiers,
   }
 }
 
