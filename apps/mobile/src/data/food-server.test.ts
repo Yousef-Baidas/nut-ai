@@ -61,7 +61,10 @@ describe('searchFoods', () => {
     const body: SearchResponse = {
       schemaVersion: 1, outcome: { kind: 'miss' }, ladderStep: 0, zeroHit: true, details: {},
     }
-    const spy = vi.fn(async (..._args: unknown[]) => jsonResponse(200, body))
+    const spy = vi.fn(async (url: string) => {
+      void url
+      return jsonResponse(200, body)
+    })
     vi.stubGlobal('fetch', spy)
     await searchFoods('فول', 250)
     const url = String(spy.mock.calls[0]![0])

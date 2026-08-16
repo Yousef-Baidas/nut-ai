@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest'
  */
 
 let provider: string = 'openai'
-let credential: unknown = { apiKey: 'sk-test' }
+const credential: unknown = { apiKey: 'sk-test' }
 let credentialThrows = false
 let runOutcome: unknown = {
   ok: true,

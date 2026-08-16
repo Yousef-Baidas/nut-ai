@@ -231,7 +231,7 @@ Requires Node ≥ 20.19.
 
 ```bash
 npm install
-npm run check        # lint + typecheck + tests + node-purity
+npm run check        # lint + typecheck + tests + node-purity + data:verify
 ```
 
 **Expo Go is a supported development mode in this fork.**

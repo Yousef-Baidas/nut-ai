@@ -104,31 +104,56 @@ function classify(status: number, body: string): ScanFailure {
   return { kind: 'error-retryable', message: `Unexpected response (${status}).`, retryable: true, httpStatus: status }
 }
 
+/**
+ * Minimal untyped-JSON helpers. Provider responses are walked defensively —
+ * no schema is trusted until `WebLookupResultZ`/the scan schema validates it —
+ * so these narrow one field at a time instead of casting the whole envelope.
+ */
+type Json = Record<string, unknown>
+
+function asRecord(v: unknown): Json | undefined {
+  return typeof v === 'object' && v !== null ? (v as Json) : undefined
+}
+
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
+
+function asNumber(v: unknown): number | undefined {
+  return typeof v === 'number' ? v : undefined
+}
+
 /** Pull the JSON payload out of each provider's differently-shaped envelope. */
 function extractPayload(provider: ProviderId, json: unknown): { raw: unknown; inputTokens: number; outputTokens: number } | null {
-  const j = json as Record<string, any>
+  const j = asRecord(json) ?? {}
   try {
     if (provider === 'anthropic') {
-      const text = j.content?.[0]?.text
+      const text = asRecord(asArray(j.content)[0])?.text
+      const usage = asRecord(j.usage)
       return {
         raw: typeof text === 'string' ? JSON.parse(text) : text,
-        inputTokens: j.usage?.input_tokens ?? 0,
-        outputTokens: j.usage?.output_tokens ?? 0,
+        inputTokens: asNumber(usage?.input_tokens) ?? 0,
+        outputTokens: asNumber(usage?.output_tokens) ?? 0,
       }
     }
     if (provider === 'openai') {
-      const text = j.choices?.[0]?.message?.content
+      const choice = asRecord(asArray(j.choices)[0])
+      const text = asRecord(choice?.message)?.content
+      const usage = asRecord(j.usage)
       return {
         raw: typeof text === 'string' ? JSON.parse(text) : text,
-        inputTokens: j.usage?.prompt_tokens ?? 0,
-        outputTokens: j.usage?.completion_tokens ?? 0,
+        inputTokens: asNumber(usage?.prompt_tokens) ?? 0,
+        outputTokens: asNumber(usage?.completion_tokens) ?? 0,
       }
     }
-    const text = j.candidates?.[0]?.content?.parts?.[0]?.text
+    const candidate = asRecord(asArray(j.candidates)[0])
+    const content = asRecord(candidate?.content)
+    const text = asRecord(asArray(content?.parts)[0])?.text
+    const usageMetadata = asRecord(j.usageMetadata)
     return {
       raw: typeof text === 'string' ? JSON.parse(text) : text,
-      inputTokens: j.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: j.usageMetadata?.candidatesTokenCount ?? 0,
+      inputTokens: asNumber(usageMetadata?.promptTokenCount) ?? 0,
+      outputTokens: asNumber(usageMetadata?.candidatesTokenCount) ?? 0,
     }
   } catch {
     return null
@@ -296,21 +321,32 @@ async function postVisionJson(
     const text = await res.text()
     if (!res.ok) return { ok: false, error: classify(res.status, text) }
 
-    let j: Record<string, any>
+    let j: Json
     try {
-      j = JSON.parse(text) as Record<string, any>
+      j = (JSON.parse(text) as Json) ?? {}
     } catch {
       return { ok: false, error: { kind: 'schema-violation', message: 'The provider returned malformed JSON.', retryable: false } }
     }
 
     let out: string | null = null
     if (provider === 'anthropic') {
-      const texts = (j.content ?? []).filter((b: any) => b?.type === 'text')
-      out = texts.length ? texts[texts.length - 1].text : null
+      const texts = asArray(j.content).filter((b) => asRecord(b)?.type === 'text')
+      const last = asRecord(texts[texts.length - 1])
+      out = texts.length && typeof last?.text === 'string' ? last.text : null
     } else if (provider === 'openai') {
-      out = j.choices?.[0]?.message?.content ?? null
+      const choice = asRecord(asArray(j.choices)[0])
+      const content = asRecord(choice?.message)?.content
+      out = typeof content === 'string' ? content : null
     } else {
-      out = (j.candidates?.[0]?.content?.parts ?? []).map((p: any) => p?.text ?? '').join('') || null
+      const candidate = asRecord(asArray(j.candidates)[0])
+      const content = asRecord(candidate?.content)
+      out =
+        asArray(content?.parts)
+          .map((p) => {
+            const t = asRecord(p)?.text
+            return typeof t === 'string' ? t : ''
+          })
+          .join('') || null
     }
     if (!out) {
       return { ok: false, error: { kind: 'schema-violation', message: 'The provider returned no text.', retryable: false } }
@@ -371,9 +407,9 @@ export async function runWebLookup(
     const text = await res.text()
     if (!res.ok) return { ok: false, error: classify(res.status, text) }
 
-    let j: Record<string, any>
+    let j: Json
     try {
-      j = JSON.parse(text) as Record<string, any>
+      j = (JSON.parse(text) as Json) ?? {}
     } catch {
       return { ok: false, error: { kind: 'schema-violation', message: 'The provider returned malformed JSON.', retryable: false } }
     }
@@ -381,14 +417,33 @@ export async function runWebLookup(
     if (provider === 'anthropic') {
       // Content is a block ARRAY interleaving tool use and text; the answer is
       // the LAST text block, not the first.
-      const texts = (j.content ?? []).filter((b: any) => b?.type === 'text')
-      out = texts.length ? texts[texts.length - 1].text : null
+      const texts = asArray(j.content).filter((b) => asRecord(b)?.type === 'text')
+      const last = asRecord(texts[texts.length - 1])
+      out = texts.length && typeof last?.text === 'string' ? last.text : null
     } else if (provider === 'openai') {
       // Responses API: output[] items; the message item holds output_text parts.
-      const msg = (j.output ?? []).find((o: any) => o?.type === 'message')
-      out = msg?.content?.map((c: any) => c?.text ?? '').join('') ?? j.output_text ?? null
+      const msg = asRecord(asArray(j.output).find((o) => asRecord(o)?.type === 'message'))
+      const content = msg?.content
+      const mapped =
+        content !== undefined
+          ? asArray(content)
+              .map((c) => {
+                const t = asRecord(c)?.text
+                return typeof t === 'string' ? t : ''
+              })
+              .join('')
+          : undefined
+      out = mapped ?? (typeof j.output_text === 'string' ? j.output_text : null)
     } else {
-      out = (j.candidates?.[0]?.content?.parts ?? []).map((p: any) => p?.text ?? '').join('') || null
+      const candidate = asRecord(asArray(j.candidates)[0])
+      const content = asRecord(candidate?.content)
+      out =
+        asArray(content?.parts)
+          .map((p) => {
+            const t = asRecord(p)?.text
+            return typeof t === 'string' ? t : ''
+          })
+          .join('') || null
     }
     if (!out) {
       return { ok: false, error: { kind: 'schema-violation', message: 'The provider returned no text.', retryable: false } }

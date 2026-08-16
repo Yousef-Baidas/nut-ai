@@ -14,7 +14,10 @@ vi.mock('expo-image-manipulator', () => ({
 
 const lookupBarcode = vi.fn()
 const runRemotePipeline = vi.fn()
-const loadCredential = vi.fn(async (..._args: unknown[]) => null as { kind: 'api_key'; value: string } | null)
+const loadCredential = vi.fn(async (...args: unknown[]) => {
+  void args
+  return null as { kind: 'api_key'; value: string } | null
+})
 const runScanWithFallback = vi.fn()
 
 vi.mock('../data/food-server', () => ({

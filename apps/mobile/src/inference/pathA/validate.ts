@@ -53,7 +53,7 @@ export type ValidationResult = ValidationOk | ValidationErr
 
 const ANTHROPIC_VERSION = '2023-06-01'
 
-function classify(status: number, body: string): ScanFailure {
+function classify(status: number): ScanFailure {
   if (status === 401 || status === 403) {
     return { kind: 'key-invalid', message: 'The provider rejected this credential.', retryable: false, httpStatus: status }
   }
@@ -165,10 +165,10 @@ export async function validateCredential(
       // A 404 means auth worked but the model is wrong; trying the other header
       // shape cannot help, so stop and say so.
       if (r.status === 404) {
-        return { ok: false, error: classify(404, r.body), detail: details.join('\n') }
+        return { ok: false, error: classify(404), detail: details.join('\n') }
       }
     }
-    return { ok: false, error: classify(401, details.join('\n')), detail: details.join('\n') }
+    return { ok: false, error: classify(401), detail: details.join('\n') }
   }
 
   // ---- OpenAI --------------------------------------------------------------
@@ -194,7 +194,7 @@ export async function validateCredential(
       }
     }
     if (r.status >= 200 && r.status < 300) return { ok: true, usedShape: 'bearer', modelId: model }
-    return { ok: false, error: classify(r.status, r.body), detail: `HTTP ${r.status} — ${r.body}` }
+    return { ok: false, error: classify(r.status), detail: `HTTP ${r.status} — ${r.body}` }
   }
 
   // ---- Google --------------------------------------------------------------
@@ -219,5 +219,5 @@ export async function validateCredential(
     }
   }
   if (r.status >= 200 && r.status < 300) return { ok: true, usedShape: 'query-param', modelId: model }
-  return { ok: false, error: classify(r.status, r.body), detail: `HTTP ${r.status} — ${r.body}` }
+  return { ok: false, error: classify(r.status), detail: `HTTP ${r.status} — ${r.body}` }
 }

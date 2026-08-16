@@ -7,12 +7,12 @@ import { runLabelScan, runScan, runScanWithFallback, runWebLookup } from './clie
  * the tool-using calls need. No network — every byte is scripted.
  */
 
-type Call = { url: string; body: any }
+type Call = { url: string; body: unknown }
 
 function scripted(responses: Array<{ status: number; body: string }>) {
   const calls: Call[] = []
-  const impl = vi.fn(async (url: any, init: any) => {
-    calls.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : undefined })
+  const impl = vi.fn(async (url: string | URL, init?: RequestInit) => {
+    calls.push({ url: String(url), body: init?.body ? JSON.parse(init.body as string) : undefined })
     const r = responses[Math.min(calls.length - 1, responses.length - 1)]!
     return { ok: r.status >= 200 && r.status < 300, status: r.status, text: async () => r.body } as Response
   })
@@ -149,7 +149,7 @@ describe('runWebLookup JSON fishing', () => {
     ])
     const r = await runWebLookup('anthropic', { model: 'm', itemName: 'x', brand: null }, { kind: 'api_key', value: 'k' }, impl)
     expect(r.ok).toBe(true)
-    expect((r.raw as any).found).toBe(true)
+    expect((r.raw as { found: boolean }).found).toBe(true)
   })
 
   it('openai Responses API: finds the message item in output[]', async () => {
@@ -166,7 +166,7 @@ describe('runWebLookup JSON fishing', () => {
     ])
     const r = await runWebLookup('openai', { model: 'm', itemName: 'x', brand: null }, { kind: 'api_key', value: 'k' }, impl)
     expect(r.ok).toBe(true)
-    expect((r.raw as any).found).toBe(false)
+    expect((r.raw as { found: boolean }).found).toBe(false)
   })
 
   it('prose with no JSON object is schema-violation, not a crash and not offline', async () => {

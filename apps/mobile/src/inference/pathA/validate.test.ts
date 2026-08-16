@@ -15,7 +15,7 @@ type Call = { url: string; method: string; headers: Record<string, string>; body
 
 function scripted(responses: Array<{ status: number; body?: string }>) {
   const calls: Call[] = []
-  const impl = vi.fn(async (url: any, init: any) => {
+  const impl = vi.fn(async (url: string | URL, init?: RequestInit) => {
     calls.push({
       url: String(url),
       method: init?.method ?? 'GET',
@@ -43,7 +43,7 @@ describe('anthropic credential shapes', () => {
     // Without this beta header a VALID setup-token 401s. Load-bearing.
     expect(calls[0]!.headers['anthropic-beta']).toBe('oauth-2025-04-20')
     // One output token — the cheapest request that proves inference scope.
-    expect((calls[0]!.body as any).max_tokens).toBe(1)
+    expect((calls[0]!.body as { max_tokens: number }).max_tokens).toBe(1)
   })
 
   it('probes an API key against the free model-retrieve endpoint', async () => {
