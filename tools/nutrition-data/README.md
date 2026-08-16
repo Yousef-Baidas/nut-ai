@@ -1,11 +1,11 @@
 # nutai-nutrition-data
 
-Builds the `nutrition.db` artifact the app bundles.
+Builds the `nutrition-full.db` database that runs on your PC and serves the app over Tailscale.
 
 **This project and its output are licensed separately from the application.**
-The app is AGPL-3.0; this pipeline is ODbL-1.0, because that is the license the
-Open Food Facts tier imports once it is added. Data licenses and code licenses
-are legally independent — neither discharges the other.
+The app is AGPL-3.0; the database is ODbL-1.0/CC0-1.0/curated-cited depending on the tier, because
+of the Open Food Facts and other licensed data it contains. Data licenses and code licenses are
+legally independent — neither discharges the other.
 
 Sources and their actual terms:
 
@@ -29,9 +29,9 @@ Italy CREA, EuroFIR (paid membership).
 
 `tools/nutrition-data/src/build-full.mjs` builds a full corpus — three tiers,
 merged into one SQLite file — as a manual, PC-only step. It is never run on
-the phone and its output is never an app asset; it exists to *produce* the
-app asset (`nutrition.db`) on a machine that can hold gigabytes of scratch
-data.
+the phone. The output (`nutrition-full.db`) lives on your PC and is never
+compiled into the app; it is served to the app over Tailscale by the
+`food-server` systemd service.
 
 Three downloads/inputs, ingested in this order (order matters — see dedup below):
 
@@ -72,8 +72,12 @@ logging it to stdout.
 
 Run the build with:
 ```
-node tools/nutrition-data/src/build-full.mjs
+npm run data:build:full
 ```
 Output lands at `~/nut-ai-data/nutrition-full.db` (override with `OUT`). The
 OFF ingest is resumable (checkpointed every 5000 lines); `fdc_branded` is
 skipped with a log line, not an error, when `FDC_BRANDED_DIR` isn't set.
+
+See [README.md § Running the food server](../../README.md#running-the-food-server) for the
+complete deployment flow and [`deploy/food-server.service`](../../deploy/food-server.service) for
+systemd integration.

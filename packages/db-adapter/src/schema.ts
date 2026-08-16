@@ -4,8 +4,8 @@
  * SPEC-accuracy-engine.md §5.3. Two databases with deliberately separate
  * lifecycles, and the separation is licensing as much as engineering:
  *
- *   nutrition.db  read-only bundled asset. ODbL/CC0 DATA, shipped as a build
- *                 artifact from its own repo on its own release cadence.
+ *   nutrition.db  read-only PC-hosted database. ODbL/CC0 DATA, built on the
+ *                 user's PC and served over Tailscale.
  *   user.db       writable, local, user-owned. Never mixed with the corpus.
  *
  * Keeping them apart means a nutrition-database update can never mutate a

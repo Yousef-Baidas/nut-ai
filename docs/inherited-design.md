@@ -379,7 +379,7 @@ as much as engineering:
 
 | | |
 | --- | --- |
-| `nutrition.db` | read-only bundled asset. ODbL/CC0 **data**, shipped as a build artifact from its own repo on its own release cadence. |
+| `nutrition.db` | read-only PC-hosted database. ODbL/CC0 **data**, built on the user's PC and served over Tailscale. |
 | `user.db` | writable, local, user-owned. Never mixed with the corpus. |
 
 Keeping them apart means a nutrition-database update can never mutate a historical log, and the data
