@@ -27,6 +27,7 @@
     "build:packages": "tsc --build packages/core-schema packages/db-adapter packages/clamp packages/resolver",
     "build:server": "tsc --build apps/food-server",
     "food-server": "npm run build:server && node apps/food-server/dist/server.js",
+    "eval:run": "npm run build:packages && tsc --build eval && node eval/dist/runner.js",
     "postinstall": "node scripts/patch-expo-modules-jsi.mjs"
   },
   "devDependencies": {

@@ -4,7 +4,12 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/runner.js",
+  "types": "./dist/runner.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "run": "node dist/runner.js"
+  },
   "dependencies": {
     "@nutai/core-schema": "*",
     "@nutai/pipeline": "*",

@@ -1,0 +1,949 @@
+{
+  "_meta": {
+    "provenance": "seeded",
+    "description": "SEEDED golden set. Every truth value is computed from the fixture corpus's (tools/nutrition-data/out/nutrition.db) own per-100g rows at the grams stated in each payload item, the arithmetic a careful human would do by hand — not a kitchen-scale weighing. These cases exist to exercise the real pipeline end to end, not to measure real-world accuracy. Never present numbers derived from this file as measured accuracy. Kitchen-scale-weighed cases replace these one case at a time; only once every case here is replaced does provenance become 'measured'."
+  },
+  "cases": [
+    {
+      "id": "single-chicken-breast",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Grilled chicken breast",
+            "brand": null,
+            "canonical_food_key": "chicken breast, grilled",
+            "food_form": "flat",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 170,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [
+              "grill_marks"
+            ],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 280,
+              "protein_g": 53,
+              "carbs_g": 0,
+              "fat_g": 6,
+              "fiber_g": 0,
+              "sodium_mg": 130
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 256.7,
+        "protein_g": 51.92,
+        "fat_g": 5.39,
+        "carb_g": 0,
+        "itemGrams": [
+          170
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "single-white-rice",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "White rice",
+            "brand": null,
+            "canonical_food_key": "rice, white, cooked",
+            "food_form": "piled",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 180,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 230,
+              "protein_g": 4,
+              "carbs_g": 50,
+              "fat_g": 0.5,
+              "fiber_g": 1,
+              "sodium_mg": 5
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 174.6,
+        "protein_g": 3.64,
+        "fat_g": 0.34,
+        "carb_g": 37.96,
+        "itemGrams": [
+          180
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "single-banana",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Banana",
+            "brand": null,
+            "canonical_food_key": "banana, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "raw",
+            "model_gram_estimate": 120,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 105,
+              "protein_g": 1.3,
+              "carbs_g": 27,
+              "fat_g": 0.4,
+              "fiber_g": 3,
+              "sodium_mg": 1
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 106.8,
+        "protein_g": 1.31,
+        "fat_g": 0.4,
+        "carb_g": 27.41,
+        "itemGrams": [
+          120
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "single-cheddar-cheese",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Cheddar cheese",
+            "brand": null,
+            "canonical_food_key": "cheddar cheese",
+            "food_form": "flat",
+            "qualitative_size": "small",
+            "weight_basis": "as_served",
+            "model_gram_estimate": 30,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 120,
+              "protein_g": 7,
+              "carbs_g": 1,
+              "fat_g": 10,
+              "fiber_g": 0,
+              "sodium_mg": 190
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 122.4,
+        "protein_g": 6.99,
+        "fat_g": 10.2,
+        "carb_g": 0.73,
+        "itemGrams": [
+          30
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "single-salmon",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Atlantic salmon",
+            "brand": null,
+            "canonical_food_key": "salmon, atlantic",
+            "food_form": "flat",
+            "qualitative_size": "medium",
+            "weight_basis": "raw",
+            "model_gram_estimate": 150,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 210,
+              "protein_g": 30,
+              "carbs_g": 0,
+              "fat_g": 9,
+              "fiber_g": 0,
+              "sodium_mg": 60
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 213,
+        "protein_g": 29.76,
+        "fat_g": 9.51,
+        "carb_g": 0,
+        "itemGrams": [
+          150
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "single-almonds",
+      "stratum": "single",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Almonds",
+            "brand": null,
+            "canonical_food_key": "almonds",
+            "food_form": "piled",
+            "qualitative_size": "small",
+            "weight_basis": "as_served",
+            "model_gram_estimate": 30,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 170,
+              "protein_g": 6,
+              "carbs_g": 6,
+              "fat_g": 15,
+              "fiber_g": 4,
+              "sodium_mg": 0
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 173.7,
+        "protein_g": 6.35,
+        "fat_g": 14.98,
+        "carb_g": 6.47,
+        "itemGrams": [
+          30
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "mixed-chicken-rice-broccoli",
+      "stratum": "mixed",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Grilled chicken breast",
+            "brand": null,
+            "canonical_food_key": "chicken breast, grilled",
+            "food_form": "flat",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 170,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [
+              "grill_marks"
+            ],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 280,
+              "protein_g": 53,
+              "carbs_g": 0,
+              "fat_g": 6,
+              "fiber_g": 0,
+              "sodium_mg": 130
+            }
+          },
+          {
+            "name": "White rice",
+            "brand": null,
+            "canonical_food_key": "rice, white, cooked",
+            "food_form": "piled",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 180,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 230,
+              "protein_g": 4,
+              "carbs_g": 50,
+              "fat_g": 0.5,
+              "fiber_g": 1,
+              "sodium_mg": 5
+            }
+          },
+          {
+            "name": "Broccoli",
+            "brand": null,
+            "canonical_food_key": "broccoli, raw",
+            "food_form": "piled",
+            "qualitative_size": "small",
+            "weight_basis": "raw",
+            "model_gram_estimate": 90,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 30,
+              "protein_g": 3,
+              "carbs_g": 6,
+              "fat_g": 0.3,
+              "fiber_g": 3,
+              "sodium_mg": 30
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 460.1,
+        "protein_g": 57.87,
+        "fat_g": 6.04,
+        "carb_g": 43.62,
+        "itemGrams": [
+          170,
+          180,
+          90
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "mixed-hamburger",
+      "stratum": "mixed",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Beef patty",
+            "brand": null,
+            "canonical_food_key": "ground beef, patty, cooked",
+            "food_form": "flat",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 90,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [
+              "grill_marks"
+            ],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 230,
+              "protein_g": 20,
+              "carbs_g": 0,
+              "fat_g": 17,
+              "fiber_g": 0,
+              "sodium_mg": 70
+            }
+          },
+          {
+            "name": "Hamburger bun",
+            "brand": null,
+            "canonical_food_key": "roll, hamburger",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "as_served",
+            "model_gram_estimate": 50,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 140,
+              "protein_g": 5,
+              "carbs_g": 26,
+              "fat_g": 2,
+              "fiber_g": 1,
+              "sodium_mg": 250
+            }
+          },
+          {
+            "name": "Tomato slices",
+            "brand": null,
+            "canonical_food_key": "tomatoes, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:2",
+            "weight_basis": "raw",
+            "model_gram_estimate": 40,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 7,
+              "protein_g": 0.4,
+              "carbs_g": 1.6,
+              "fat_g": 0,
+              "fiber_g": 0.5,
+              "sodium_mg": 2
+            }
+          },
+          {
+            "name": "Lettuce",
+            "brand": null,
+            "canonical_food_key": "lettuce, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "raw",
+            "model_gram_estimate": 10,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 2,
+              "protein_g": 0.1,
+              "carbs_g": 0.3,
+              "fat_g": 0,
+              "fiber_g": 0.2,
+              "sodium_mg": 3
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 417.1,
+        "protein_g": 26.1,
+        "fat_g": 21.88,
+        "carb_g": 27.49,
+        "itemGrams": [
+          90,
+          50,
+          40,
+          10
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "mixed-breakfast",
+      "stratum": "mixed",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Egg",
+            "brand": null,
+            "canonical_food_key": "egg, whole, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "raw",
+            "model_gram_estimate": 50,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 72,
+              "protein_g": 6,
+              "carbs_g": 0.4,
+              "fat_g": 5,
+              "fiber_g": 0,
+              "sodium_mg": 70
+            }
+          },
+          {
+            "name": "Oatmeal",
+            "brand": null,
+            "canonical_food_key": "oats, regular, cooked",
+            "food_form": "piled",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 200,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 150,
+              "protein_g": 5,
+              "carbs_g": 27,
+              "fat_g": 3,
+              "fiber_g": 4,
+              "sodium_mg": 0
+            }
+          },
+          {
+            "name": "Banana",
+            "brand": null,
+            "canonical_food_key": "banana, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "raw",
+            "model_gram_estimate": 120,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 105,
+              "protein_g": 1.3,
+              "carbs_g": 27,
+              "fat_g": 0.4,
+              "fiber_g": 3,
+              "sodium_mg": 1
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 320.3,
+        "protein_g": 12.67,
+        "fat_g": 8.19,
+        "carb_g": 51.77,
+        "itemGrams": [
+          50,
+          200,
+          120
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "mixed-dinner-plate",
+      "stratum": "mixed",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Baked sweet potato",
+            "brand": null,
+            "canonical_food_key": "sweet potato, baked",
+            "food_form": "discrete",
+            "qualitative_size": "medium",
+            "weight_basis": "cooked",
+            "model_gram_estimate": 130,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 110,
+              "protein_g": 2,
+              "carbs_g": 26,
+              "fat_g": 0.2,
+              "fiber_g": 4,
+              "sodium_mg": 40
+            }
+          },
+          {
+            "name": "Spinach",
+            "brand": null,
+            "canonical_food_key": "spinach, raw",
+            "food_form": "piled",
+            "qualitative_size": "small",
+            "weight_basis": "raw",
+            "model_gram_estimate": 60,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 15,
+              "protein_g": 2,
+              "carbs_g": 2,
+              "fat_g": 0.2,
+              "fiber_g": 1,
+              "sodium_mg": 40
+            }
+          },
+          {
+            "name": "Atlantic salmon",
+            "brand": null,
+            "canonical_food_key": "salmon, atlantic",
+            "food_form": "flat",
+            "qualitative_size": "medium",
+            "weight_basis": "raw",
+            "model_gram_estimate": 150,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 210,
+              "protein_g": 30,
+              "carbs_g": 0,
+              "fat_g": 9,
+              "fiber_g": 0,
+              "sodium_mg": 60
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 356.8,
+        "protein_g": 33.7,
+        "fat_g": 9.9,
+        "carb_g": 32.6,
+        "itemGrams": [
+          130,
+          60,
+          150
+        ]
+      },
+      "provenance": "seeded"
+    },
+    {
+      "id": "mixed-snack-plate",
+      "stratum": "mixed",
+      "pathway": "model_guess",
+      "payload": {
+        "schema_version": "1.0.0",
+        "is_food": true,
+        "refusal_reason": null,
+        "items": [
+          {
+            "name": "Plain Greek yogurt",
+            "brand": null,
+            "canonical_food_key": "yogurt, plain",
+            "food_form": "piled",
+            "qualitative_size": "medium",
+            "weight_basis": "as_served",
+            "model_gram_estimate": 170,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 100,
+              "protein_g": 17,
+              "carbs_g": 6,
+              "fat_g": 0.5,
+              "fiber_g": 0,
+              "sodium_mg": 60
+            }
+          },
+          {
+            "name": "Almonds",
+            "brand": null,
+            "canonical_food_key": "almonds",
+            "food_form": "piled",
+            "qualitative_size": "small",
+            "weight_basis": "as_served",
+            "model_gram_estimate": 30,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 170,
+              "protein_g": 6,
+              "carbs_g": 6,
+              "fat_g": 15,
+              "fiber_g": 4,
+              "sodium_mg": 0
+            }
+          },
+          {
+            "name": "Banana",
+            "brand": null,
+            "canonical_food_key": "banana, raw",
+            "food_form": "discrete",
+            "qualitative_size": "count:1",
+            "weight_basis": "raw",
+            "model_gram_estimate": 120,
+            "identification_confidence": 0.9,
+            "portion_confidence": 0.6,
+            "uncertainty_reason": "none",
+            "visible_reference_objects": [],
+            "container": null,
+            "cooking_method_cues": [],
+            "is_beverage": false,
+            "beverage_category": null,
+            "legible_label_text": null,
+            "stated_assumptions": [],
+            "clarifying_questions": [],
+            "fallback_macros_at_estimate": {
+              "calories_kcal": 105,
+              "protein_g": 1.3,
+              "carbs_g": 27,
+              "fat_g": 0.4,
+              "fiber_g": 3,
+              "sodium_mg": 1
+            }
+          }
+        ],
+        "meal_overall": {
+          "identification_confidence": 0.9,
+          "portion_confidence": 0.6,
+          "assumptions": [],
+          "clarifying_questions": []
+        }
+      },
+      "truth": {
+        "kcal": 384.2,
+        "protein_g": 25.16,
+        "fat_g": 16,
+        "carb_g": 40.06,
+        "itemGrams": [
+          170,
+          30,
+          120
+        ]
+      },
+      "provenance": "seeded"
+    }
+  ]
+}
