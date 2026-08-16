@@ -44,7 +44,9 @@ export default tseslint.config(
   },
   {
     files: ['apps/mobile/**/*.ts', 'apps/mobile/**/*.tsx'],
-    ignores: ['apps/mobile/src/theme/tokens.ts'],
+    // app.config.ts is exempt because @expo/config evaluates it under plain
+    // Node require at server start — it cannot import tokens.ts at runtime.
+    ignores: ['apps/mobile/src/theme/tokens.ts', 'apps/mobile/app.config.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
