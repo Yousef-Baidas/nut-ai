@@ -248,6 +248,11 @@ cd apps/mobile && npm run start:go      # `npm start` is the dev-client variant,
 Scan the QR code and the app runs on your phone with no Mac, no Xcode and no native build — which
 is what makes a Linux development host viable.
 
+No QR handy? In Expo Go, "Enter URL manually" with `exp://<your PC's LAN IP>:8081` (the QR encodes
+the same thing — the IP from `ip route get 1.1.1.1`). If the phone is on Tailscale rather than your
+Wi-Fi, use the PC's Tailscale address instead: `exp://$(tailscale ip -4):8081` — the dev server
+listens on every interface, `--lan` only changes which one the QR advertises.
+
 What it costs: **HealthKit is stubbed.** `react-native-healthkit` is a native module Expo Go cannot
 load, so `apps/mobile/stubs/react-native-healthkit.js` stands in for it and Apple Health does
 nothing. Everything else the app reaches for — camera, SQLite, Keychain key storage, file
